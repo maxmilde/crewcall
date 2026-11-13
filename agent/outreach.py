@@ -1,5 +1,7 @@
 """Messages to workers: job offers for shifts, and the public job post for open shifts."""
 
+import os
+
 from agent.describe import describe
 from agent.domain import prompt, settings
 from shared.llm import chat_json
@@ -35,4 +37,6 @@ def draft_post(open_shifts: list[Shift]) -> str:
     lines = "\n".join(
         f"- {describe(s)} | people needed: {s.headcount or 'some'}" for s in open_shifts
     )
-    return str(chat_json(DRAFT_POST_PROMPT, f"Open shifts:\n{lines}").get("text", "")).strip()
+    post = str(chat_json(DRAFT_POST_PROMPT, f"Open shifts:\n{lines}").get("text", "")).strip()
+    link = f"https://t.me/{os.getenv('TELEGRAM_BOT_NAME', '<bot>')}?start=apply"
+    return f"{post}\n\nInterested? Message us here: {link}"
