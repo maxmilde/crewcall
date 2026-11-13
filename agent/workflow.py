@@ -32,6 +32,9 @@ client_contacts: dict[str, tuple[str, str]] = {}  # request id -> (client email,
 drafts: dict[str, str] = {}                       # request id -> client reply waiting for the owner's "send"
 questions: dict[str, list[OpenQuestion]] = {}  # request id -> open points for the client
 minutes: dict[str, dict[str, int]] = {}    # shift id -> cleaner id -> travel minutes
+_travel_jobs: dict[str, object] = {}       # shift id -> running Apify lookup (started as soon as the email is read)
+_travel_pool = ThreadPoolExecutor(max_workers=4)
+TRAVEL_WAIT_SECONDS = 20                   # after the owner's yes, wait at most this long for Apify
 waiting_for_travel: set[str] = set()       # cleaners we asked "how far would you travel?"
 lock = threading.RLock()                   # replies arrive from several threads (bot, simulated workers)
 
@@ -61,6 +64,10 @@ def _send(cleaner_id: str, text: str, buttons: list[str] | None = None) -> None:
 
 # 1. Emails in: read them all at once, owner sets headcounts and approves
 def start(new_requests: list[Request]) -> list[Shift]:
+    seen = {r.raw_text.strip() for r in requests.values()}
+    new_requests = [r for r in new_requests if r.raw_text.strip() not in seen]  # same email twice: handle once
+    if not new_requests:
+        return []
     with ThreadPoolExecutor(max_workers=4) as pool:
         parsed = list(pool.map(parse_request, new_requests))
     shifts = []
@@ -68,6 +75,8 @@ def start(new_requests: list[Request]) -> list[Shift]:
         requests[req.id], questions[req.id] = req, req_questions
         roster.add_shifts(req_shifts)
         shifts += req_shifts
+        for s in req_shifts:  # Apify can take minutes: start now, while the owner reads and decides
+            _travel_jobs[s.id] = _travel_pool.submit(travel_minutes, _pool(), s.address or s.site_name or "", _arrive_by(s))
         events.log("request", f"Email from {req.id}: {len(req_shifts)} shifts read")
         notify_owner(_request_summary(req, req_shifts))
     for s in shifts:
@@ -78,7 +87,17 @@ def start(new_requests: list[Request]) -> list[Shift]:
             s.headcount = int(digits) if digits and int(digits) > 0 else words.get(answer.strip().lower(), 1)
             events.log("owner", f"Owner set {s.id} to {s.headcount} people")
     roster.save()
-    if not is_yes(ask_owner("Shall I start asking people? (yes/no)")):
+    names = ", ".join(dict.fromkeys(client_names.get(r.id, r.id) for r in new_requests))
+    for _ in range(3):
+        answer = ask_owner(f"Shall I start asking people for {names}? (yes/no)")
+        if is_yes(answer):
+            break
+        if is_no(answer):
+            notify_owner(f"Okay, I won't contact anyone for {names}.")
+            return []
+        from agent import owner_chat  # she asked something else first: answer it, then ask again
+        notify_owner(owner_chat.handle(answer))
+    else:
         return []
     events.log("owner", "Owner approved: contacting workers")
     return shifts
@@ -88,6 +107,11 @@ def is_yes(answer: str) -> bool:
     """Owners answer "ok", "sure", "go ahead", "ano"..., not only "yes"."""
     a = answer.strip().lower()
     return a.startswith(("y", "ok", "sure", "go", "ano", "jo", "fine", "do it", "👍", "send"))
+
+
+def is_no(answer: str) -> bool:
+    a = answer.strip().lower()
+    return a in ("n", "no", "nope", "ne", "stop", "cancel", "not now", "don't", "dont") or a.startswith(("no ", "no,", "not "))
 
 
 def _hours(s: Shift) -> str:
@@ -151,11 +175,31 @@ def _rules_exclude(shift: Shift, cleaner_ids: list[str]) -> set[str]:
             and _excluded.get((shift.id, c, tuple(roster.cleaners[c].constraints)))}
 
 
+def _pool() -> list:
+    return [c for c in roster.cleaners.values() if c.simulated or c.telegram_chat_id]  # real phones need /start first
+
+
+def _travel(shift: Shift, pool: list) -> dict[str, int]:
+    """Travel times, never blocking long: if Apify is still busy, estimate and carry on."""
+    from agent import stand_ins
+    job = _travel_jobs.get(shift.id)
+    try:
+        if job is None:
+            job = _travel_pool.submit(travel_minutes, pool, shift.address or shift.site_name or "", _arrive_by(shift))
+            _travel_jobs[shift.id] = job
+        times = job.result(timeout=TRAVEL_WAIT_SECONDS)
+    except Exception:  # still running or failed: the real times land in Apify's cache for next time
+        print(f"  [travel] Apify not ready for {shift.id}: using estimates")
+        return stand_ins.travel_minutes(pool, shift.address or shift.site_name or "", _arrive_by(shift))
+    missing = [c for c in pool if c.id not in times and c.home_area]  # e.g. linked after the lookup started
+    return times if not missing else {**stand_ins.travel_minutes(missing, shift.address or "", ""), **times}
+
+
 def _candidates(shift: Shift) -> list[str]:
     """2. Nearest first, skipping people already asked, out of their travel range, or ruled out by their rules."""
-    pool = [c for c in roster.cleaners.values() if c.simulated or c.telegram_chat_id]  # real phones need /start first
+    pool = _pool()
     if shift.id not in minutes:
-        minutes[shift.id] = travel_minutes(pool, shift.address or shift.site_name or "", _arrive_by(shift))
+        minutes[shift.id] = _travel(shift, pool)
     times = minutes[shift.id]
     asked = roster.asked_before(shift.id)
     ordered = shortlist(shift, pool, times)
@@ -215,6 +259,9 @@ def staff(shifts: list[Shift]) -> None:
 @_locked
 def on_reply(cleaner_id: str, text: str) -> None:
     cleaner = roster.cleaners[cleaner_id]
+    if text.strip().startswith("/"):  # e.g. /start again from someone already connected
+        _send(cleaner_id, f"Hi {cleaner.name}, you're connected. Job offers will arrive here.")
+        return
     if cleaner_id in waiting_for_travel:  # answer to "how far would you travel?"
         waiting_for_travel.discard(cleaner_id)
         cleaner.max_travel_minutes, area = learn_travel(text)
