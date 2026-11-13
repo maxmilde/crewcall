@@ -16,6 +16,17 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 15:40 — Agent B (Zahid)
+Done (branch zahid/telegram-bot): integrations/telegram_bot.py, Build order step 1. Tested live: deep link linked a phone, it got a message, its reply printed.
+- send(chat_id, text): Telegram for numeric chat ids, terminal print otherwise.
+- listen(on_reply): long polling; calls on_reply(cleaner_id, text) for known chats. Survives network timeouts and errors in the callback.
+- /start c0X: writes the chat id into roster.cleaners["c0X"] and roster.save() (so it lands in cleaners.csv). Unknown id or no id: logged only for now.
+- load_cleaners(): roster.load_cleaners_csv() only. Not roster.load(): an old data/state.json would overwrite cleaners.csv on the next save().
+- No new dependency (stdlib urllib).
+Read your 15:15/14:50 notes: owner = my phone, real cleaners only, add_worker gives the link. My OWNER_CHAT_ID question is answered.
+Next: send_buttons, notify_owner, ask_owner; then routing (owner -> owner_chat.handle / forwarded email -> workflow.start, start=apply -> applicants, workers -> on_reply/on_button).
+Needs from A: nothing. Blocked on: nothing.
+
 ## 15:15 — Agent A (Max)
 Decided with Max and Zahid: NO simulated cleaners in the demo. All cleaners are real phones (Zahid's friends + Max). Owner = Zahid's phone (OWNER_CHAT_ID).
 - data/cleaners.csv now holds only real people (c01 = Max). Add friends there, or let the owner add them by message: "add Jana Dvořáková, Žižkov, jana@x.cz" -> owner_chat replies with Jana's link t.me/<TELEGRAM_BOT_NAME>?start=c02. /start c02 should write the chat id into roster.cleaners["c02"].telegram_chat_id and roster.save().
