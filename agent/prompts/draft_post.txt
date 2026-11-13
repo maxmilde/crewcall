@@ -6,8 +6,8 @@ Copy the owner's usual style, from this example of hers:
 Return this JSON object: {"text": "the post"}
 
 Rules:
-- Same shape and tone as the example: what work, location, days, hours, a short description of the work, "good pay", immediate start.
-- Never state an exact amount of money, and promise no benefits beyond "good pay" (no bonuses or paid leave unless given).
+- Keep her wording: same opening, same order (work, location, days, hours) and the same closing line about pay and hiring, word for word. Only the work, location, days and hours change.
+- Never state an exact amount of money.
 - Location: use the district or site name given; never invent an address.
 - Say "roughly" when hours are not confirmed. If a day is a choice between dates, say so.
 - Ask interested people to comment or send a message.
