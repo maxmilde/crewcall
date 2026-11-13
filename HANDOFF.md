@@ -16,10 +16,14 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
-## 15:00 — Agent A (Max)
-Owner = Zahid's phone (OWNER_CHAT_ID). data/cleaners.csv: c02 is now a simulated cleaner; real phones are c01 (Max) and c03 (volunteer).
-Live mode (branch max/autoreply): simulated cleaners (simulated=true) never go to Telegram. The workflow skips your send() for them and feeds itself their scripted reply a few seconds later (agent/autoreply.py, personalities in data/sim_replies.json). Your send()/send_buttons() only ever get real chat ids. Real cleaners without a chat id (no /start yet) are not picked.
-Workflow entry points (on_reply, on_button, on_cancel, staff) are now thread-safe, so your listen thread can call them directly.
+## 15:15 — Agent A (Max)
+Decided with Max and Zahid: NO simulated cleaners in the demo. All cleaners are real phones (Zahid's friends + Max). Owner = Zahid's phone (OWNER_CHAT_ID).
+- data/cleaners.csv now holds only real people (c01 = Max). Add friends there, or let the owner add them by message: "add Jana Dvořáková, Žižkov, jana@x.cz" -> owner_chat replies with Jana's link t.me/<TELEGRAM_BOT_NAME>?start=c02. /start c02 should write the chat id into roster.cleaners["c02"].telegram_chat_id and roster.save().
+- The agent writes everything it learns back into data/cleaners.csv (chat ids, max travel, rules, contract status), so it is her living contact list.
+- Real cleaners without a chat id are never picked; your send()/send_buttons() only get real chat ids.
+- on_reply, on_button, on_cancel and staff are thread-safe: call them straight from your listen thread.
+- New .env: TELEGRAM_BOT_NAME (bot username, for invite links).
+- agent/simulate.py still exists for testing only (own list in data/sim_cleaners.csv).
 Needs from B: nothing new. Blocked on: nothing.
 
 ## 14:50 — Agent A (Max)

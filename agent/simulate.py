@@ -9,9 +9,7 @@ import time
 from pathlib import Path
 
 import agent.stand_ins as S
-from agent import autoreply, events, roster
-
-autoreply.ENABLED = False  # this script replies for everyone itself
+from agent import events, roster
 from shared.schemas import Request
 
 PAUSE = 0 if "--fast" in sys.argv else 2.5
@@ -32,7 +30,7 @@ import agent.workflow as W  # noqa: E402  (after patching ask_owner)
 W.ask_owner = owner
 
 roster.CSV_FILE = Path("data/cleaners_sim.csv")  # the simulation never overwrites the real contact list
-roster.CSV_FILE.write_text(Path("data/cleaners.csv").read_text(encoding="utf-8"), encoding="utf-8")
+roster.CSV_FILE.write_text(Path("data/sim_cleaners.csv").read_text(encoding="utf-8"), encoding="utf-8")
 roster.load_cleaners_csv()
 emails = [("gym", "email1"), ("shop", "email2"), ("event", "email3")]
 shifts = W.start([Request(id=rid, raw_text=Path(f"data/requests/{f}.txt").read_text(), received_at="2026-11-13T09:00:00")

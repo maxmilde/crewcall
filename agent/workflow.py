@@ -7,7 +7,7 @@ client goes through the owner.
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from agent import autoreply, events, roster
+from agent import events, roster
 from agent.client_reply import draft_client_reply
 from agent.describe import describe
 from agent.documents import draft_assignment
@@ -43,7 +43,7 @@ def _locked(fn):
 
 
 def _send(cleaner_id: str, text: str, buttons: list[str] | None = None) -> None:
-    """Send to a real phone, or let a simulated worker answer by itself a few seconds later."""
+    """Send to the worker's phone. Simulated workers (agent.simulate only) get nothing."""
     cleaner = roster.cleaners[cleaner_id]
     if not cleaner.simulated:
         if not cleaner.telegram_chat_id:
@@ -53,11 +53,6 @@ def _send(cleaner_id: str, text: str, buttons: list[str] | None = None) -> None:
             send_buttons(cleaner.telegram_chat_id, text, buttons)
         else:
             send(cleaner.telegram_chat_id, text)
-    else:  # no phone: nothing goes to Telegram, the scripted reply comes back by itself
-        if buttons:
-            autoreply.later(on_button, cleaner_id, buttons[0])
-        else:
-            autoreply.later(lambda: on_reply(cleaner_id, autoreply.next_reply(cleaner_id)))
 
 
 # 1. Emails in: read them all at once, owner sets headcounts and approves
