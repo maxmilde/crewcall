@@ -12,6 +12,7 @@ import queue
 import threading
 import time
 import traceback
+import urllib.error
 import urllib.request
 from typing import Callable
 
@@ -34,8 +35,16 @@ def _api(method: str, **params) -> dict | list:
         data=json.dumps(params).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=40) as resp:
-        return json.load(resp)["result"]
+    for attempt in range(3):  # retry connection drops; real API errors (HTTPError) are raised at once
+        try:
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                return json.load(resp)["result"]
+        except urllib.error.HTTPError:
+            raise
+        except OSError:
+            if attempt == 2:
+                raise
+            time.sleep(1 + attempt)
 
 
 def _is_telegram(chat_id: str) -> bool:
