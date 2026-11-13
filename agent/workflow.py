@@ -4,6 +4,7 @@ Rules: the agent never contacts the client, never changes headcount, pay or shif
 details, and only messages workers it selected. Anything for a new person or the
 client goes through the owner.
 """
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from agent import events, roster
@@ -30,6 +31,28 @@ requests: dict[str, Request] = {}
 questions: dict[str, list[OpenQuestion]] = {}  # request id -> open points for the client
 minutes: dict[str, dict[str, int]] = {}    # shift id -> cleaner id -> travel minutes
 waiting_for_travel: set[str] = set()       # cleaners we asked "how far would you travel?"
+lock = threading.RLock()                   # replies arrive from several threads (bot, simulated workers)
+
+
+def _locked(fn):
+    def wrapper(*args, **kwargs):
+        with lock:
+            return fn(*args, **kwargs)
+    wrapper.__name__, wrapper.__doc__ = fn.__name__, fn.__doc__
+    return wrapper
+
+
+def _send(cleaner_id: str, text: str, buttons: list[str] | None = None) -> None:
+    """Send to the worker's phone. Simulated workers (agent.simulate only) get nothing."""
+    cleaner = roster.cleaners[cleaner_id]
+    if not cleaner.simulated:
+        if not cleaner.telegram_chat_id:
+            events.log("skip", f"{cleaner.name} has no Telegram chat yet (needs /start)")
+            return
+        if buttons:
+            send_buttons(cleaner.telegram_chat_id, text, buttons)
+        else:
+            send(cleaner.telegram_chat_id, text)
 
 
 # 1. Emails in: read them all at once, owner sets headcounts and approves
@@ -88,7 +111,7 @@ def _rules_exclude(shift: Shift, cleaner_ids: list[str]) -> set[str]:
 
 def _candidates(shift: Shift) -> list[str]:
     """2. Nearest first, skipping people already asked, out of their travel range, or ruled out by their rules."""
-    pool = list(roster.cleaners.values())
+    pool = [c for c in roster.cleaners.values() if c.simulated or c.telegram_chat_id]  # real phones need /start first
     if shift.id not in minutes:
         minutes[shift.id] = travel_minutes(pool, shift.address or shift.site_name or "", _arrive_by(shift))
     times = minutes[shift.id]
@@ -103,6 +126,7 @@ def _candidates(shift: Shift) -> list[str]:
 
 
 # 2–3. Ask 2N nearest per shift; one message per worker covering all their shifts
+@_locked
 def staff(shifts: list[Shift]) -> None:
     per_cleaner: dict[str, list[Shift]] = {}
     for s in shifts:
@@ -123,8 +147,8 @@ def staff(shifts: list[Shift]) -> None:
         cleaner = roster.cleaners[cid]
         nearest = min(minutes[s.id][cid] for s in per_cleaner[cid])
         text = compose(cleaner, per_cleaner[cid]) + f"\n(About {nearest} min from you by public transport.)"
-        send(cleaner.telegram_chat_id or cid, text)
         roster.mark_asked(cid, [s.id for s in per_cleaner[cid]])
+        _send(cid, text)
         events.log("offer", f"Offer to {cleaner.name} ({nearest} min away): {', '.join(s.id for s in per_cleaner[cid])}")
 
     with ThreadPoolExecutor(max_workers=8) as pool:  # offers are written in parallel
@@ -134,6 +158,7 @@ def staff(shifts: list[Shift]) -> None:
 
 
 # 4–5. A worker replied
+@_locked
 def on_reply(cleaner_id: str, text: str) -> None:
     cleaner = roster.cleaners[cleaner_id]
     if cleaner_id in waiting_for_travel:  # answer to "how far would you travel?"
@@ -156,17 +181,17 @@ def on_reply(cleaner_id: str, text: str) -> None:
             events.log("reply", note)
     if reply.too_far:
         waiting_for_travel.add(cleaner_id)
-        send(cleaner.telegram_chat_id or cleaner_id,
-             "No problem. So I only ask you for jobs that suit you: how long a trip is fine for you, and which area do you live in?")
+        _send(cleaner_id, "No problem. So I only ask you for jobs that suit you: how long a trip is fine for you, and which area do you live in?")
     if reply.label in ("question", "unclear"):
         notify_owner(f"{cleaner.name} replied: \"{text}\"" + (f"\nQuestion: {reply.question}" if reply.question else ""))
     confirmed = [roster.shifts[i] for i in reply.accepted_shift_ids if roster._entry(cleaner_id, i).status == "confirmed"]
     if confirmed:
-        send_buttons(cleaner.telegram_chat_id or cleaner_id, draft_assignment(cleaner, confirmed), ["I agree"])
+        _send(cleaner_id, draft_assignment(cleaner, confirmed), ["I agree"])
     roster.save()
     next_steps({s.id: s for s in offered}.values())
 
 
+@_locked
 def on_button(cleaner_id: str, button: str) -> None:
     if button == "I agree":
         for e in roster.entries:
@@ -194,8 +219,15 @@ def next_steps(shifts) -> None:
     if more:
         staff(more)  # one message per worker, even when several shifts reopen
     if post:
-        notify_owner("Draft for your Facebook group (it links to our Telegram bot):\n\n" + draft_post(post))
-        events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in post)}")
+        recruit(post)
+
+
+def recruit(shifts: list[Shift]) -> str:
+    """7. Draft the Facebook post for the owner; applicants answer through the bot."""
+    post = draft_post(shifts)
+    notify_owner("Draft for your Facebook group (it links to our Telegram bot):\n\n" + post)
+    events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in shifts)}")
+    return post
 
 
 def decide(shift: Shift) -> str:
@@ -220,6 +252,7 @@ def decide(shift: Shift) -> str:
 
 
 # 8. A confirmed worker cancels: standby first, then the next nearest
+@_locked
 def on_cancel(cleaner_id: str, shift_id: str) -> None:
     roster.cancel(cleaner_id, shift_id)
     shift = roster.shifts[shift_id]
@@ -229,8 +262,7 @@ def on_cancel(cleaner_id: str, shift_id: str) -> None:
     if waiting:
         roster.confirm(waiting[0], shift_id)
         cleaner = roster.cleaners[waiting[0]]
-        send_buttons(cleaner.telegram_chat_id or cleaner.id,
-                     "Good news: a place opened up and it's yours.\n\n" + draft_assignment(cleaner, [shift]), ["I agree"])
+        _send(cleaner.id, "Good news: a place opened up and it's yours.\n\n" + draft_assignment(cleaner, [shift]), ["I agree"])
         notify_owner(f"{cleaner.name} moved from standby onto {shift_id}.")
         events.log("decision", f"{cleaner.name} moved from standby onto {shift_id}")
     else:

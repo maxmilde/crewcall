@@ -15,7 +15,7 @@ from shared.schemas import Request
 PAUSE = 0 if "--fast" in sys.argv else 2.5
 roster.STATE_FILE.unlink(missing_ok=True)
 events.clear()
-owner_answers = iter(["2", "2", "2", "yes"])  # headcounts the email leaves open, then go
+owner_answers = iter(["2", "2", "2", "yes", "yes"])  # headcounts the email leaves open, go, approve applicant
 
 
 def owner(question):
@@ -29,6 +29,8 @@ S.ask_owner = owner
 import agent.workflow as W  # noqa: E402  (after patching ask_owner)
 W.ask_owner = owner
 
+roster.CSV_FILE = Path("data/cleaners_sim.csv")  # the simulation never overwrites the real contact list
+roster.CSV_FILE.write_text(Path("data/sim_cleaners.csv").read_text(encoding="utf-8"), encoding="utf-8")
 roster.load_cleaners_csv()
 emails = [("gym", "email1"), ("shop", "email2"), ("event", "email3")]
 shifts = W.start([Request(id=rid, raw_text=Path(f"data/requests/{f}.txt").read_text(), received_at="2026-11-13T09:00:00")
@@ -40,30 +42,63 @@ time.sleep(PAUSE)
 event_shifts = [s for s in shifts if s.request_id == "event"]
 thu = next(s for s in event_shifts if s.date == "2026-11-19")
 fri = next(s for s in event_shifts if s.date == "2026-11-20")
-asked = [e.cleaner_id for e in roster.entries if e.status == "asked"]
-script = {}
-for cid in asked:  # one "only Thursday", one "too far", the rest a mix
-    offered = {e.shift_id for e in roster.entries if e.cleaner_id == cid and e.status == "asked"}
-    if thu.id in offered and fri.id in offered and "only Thursday" not in script.values():
-        script[cid] = "only Thursday"
-    elif "sorry, too far for me" not in script.values():
-        script[cid] = "sorry, too far for me"
-    else:
-        script[cid] = "yes" if len(script) % 2 else "no, sorry"
-for cid, text in script.items():
+
+
+def beat(title):
+    print(f"\n######## {title}")
+    time.sleep(PAUSE)
+
+
+def say(cid, text):
     print(f"\n<< {roster.cleaners[cid].name}: {text}")
     W.on_reply(cid, text)
     time.sleep(PAUSE)
 
-far = next(c for c, t in script.items() if t.startswith("sorry, too far"))
-W.on_reply(far, "about 30 minutes, I live in Libeň")
-for e in list(roster.entries):
-    if e.status == "confirmed":
-        W.on_button(e.cleaner_id, "I agree")
-        break
+
+beat("Replies come in")
+asked = lambda sid: [e.cleaner_id for e in roster.entries if e.shift_id == sid and e.status == "asked"]
+thu_people = asked(thu.id)
+script = {}
+if thu_people:
+    script[thu_people[0]] = "only Thursday"
+if len(thu_people) > 1:
+    script[thu_people[1]] = "Thursday works for me"  # becomes standby
+for cid in asked(fri.id):
+    script.setdefault(cid, "no, sorry, I'm busy that week")
+others = [e.cleaner_id for e in roster.entries if e.status == "asked" and e.cleaner_id not in script]
+for i, cid in enumerate(dict.fromkeys(others)):
+    script[cid] = "sorry, too far for me" if i == 0 else ("yes" if i % 2 else "no, sorry")
+for cid, text in script.items():
+    still_asked_fri = cid in asked(fri.id)  # keep Friday open for the recruiting part of the story
+    say(cid, "no, sorry, I'm busy that week" if still_asked_fri and text == "yes" else text)
+
+for cid in asked(fri.id):  # people asked for Friday in later rounds decline too
+    say(cid, "sorry, can't that day")
+
+beat("Learning limits and agreeing")
+far = next((c for c, x in script.items() if x.startswith("sorry, too far")), None)
+if far:
+    say(far, "about 30 minutes, I live in Libeň")
+first = next((e for e in roster.entries if e.shift_id == thu.id and e.status == "confirmed"), None)
+if first:
+    W.on_button(first.cleaner_id, "I agree")
+
+beat("A cancellation")
+if first:
+    print(f"\n<< {roster.cleaners[first.cleaner_id].name}: sorry, I'm sick, can't do Thursday")
+    W.on_cancel(first.cleaner_id, thu.id)
+
+beat("Recruiting for Friday")
+from agent import applicants, owner_chat  # noqa: E402
+applicants.ask_owner = owner
+print("\nOWNER: Friday is urgent, post it on Facebook\nAGENT:", owner_chat.handle("Friday is urgent, post it on Facebook"))
 time.sleep(PAUSE)
-thursday = next((e for e in roster.entries if e.shift_id == thu.id and e.status == "confirmed"), None)
-if thursday:
-    print(f"\n<< {roster.cleaners[thursday.cleaner_id].name}: sorry, I'm sick, can't do Thursday")
-    W.on_cancel(thursday.cleaner_id, thu.id)
+print("\n<< (new person via the bot) hi, saw your post, I'm Lukas, I live in Karlín")
+applicants.send("tg-new", applicants.greeting())
+applicants.on_applicant("tg-new", "hi, saw your post, I'm Lukas, I live in Karlín")
+print("\n<< Lukas: weekdays after 12, lukas.novak@example.com")
+applicants.on_applicant("tg-new", "weekdays after 12, lukas.novak@example.com")
+
+beat("Owner asks")
+print("\nOWNER: who's on Friday?\nAGENT:", owner_chat.handle("who's on Friday?"))
 print("\n=== ROSTER ===\n" + roster.summary())
