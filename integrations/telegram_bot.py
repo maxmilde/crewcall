@@ -83,10 +83,11 @@ menu_texts: set[str] = set()  # button labels: never taken as an answer to ask_o
 
 
 def _quiet(text: str) -> bool:
-    """Per-step chatter: offers sent, memory saved, assignment tapped, and reply lines that need nothing from her."""
-    if text.startswith(QUIET) or (text.startswith("✍️") and "confirmed the assignment" in text):
-        return True  # a signed contract (also ✍️) still reaches her
-    return text.startswith("💬") and "\n" in text and "❓" not in text
+    """Per-step chatter: offers sent, memory saved, assignment tapped, and anything a cleaner wrote (💬).
+    Zahid's choice: cleaners' messages never reach her; unanswered offers time out in reply_window."""
+    if text.startswith(QUIET) or text.startswith("💬"):
+        return True
+    return text.startswith("✍️") and "confirmed the assignment" in text  # a signed contract (also ✍️) still reaches her
 
 
 def notify_owner(text: str) -> None:
