@@ -12,6 +12,7 @@ from openai import OpenAI
 load_dotenv()
 
 JSON_RULE = "Reply with one valid JSON object only. No prose, no markdown fences."
+TIMEOUT_SECONDS = 90
 
 _client: OpenAI | None = None
 
@@ -22,6 +23,8 @@ def _get_client() -> OpenAI:
         _client = OpenAI(
             api_key=os.environ["FEATHERLESS_API_KEY"],
             base_url=os.getenv("FEATHERLESS_BASE_URL", "https://api.featherless.ai/v1"),
+            timeout=TIMEOUT_SECONDS,
+            max_retries=2,  # the client retries timeouts, 429s and 5xx itself
         )
     return _client
 
@@ -44,7 +47,8 @@ def _parse(text: str) -> dict:
 def chat_json(system: str, user: str) -> dict:
     """Send one system + user message and return the reply as a dict.
 
-    Retries once if the reply is not valid JSON, then raises ValueError.
+    Retries once if the reply is empty or not valid JSON, then raises ValueError.
+    Each request times out after TIMEOUT_SECONDS.
     """
     messages = [
         {"role": "system", "content": f"{system}\n\n{JSON_RULE}"},
@@ -57,6 +61,9 @@ def chat_json(system: str, user: str) -> dict:
             messages=messages,
             temperature=0,
         )
+        if not response.choices:  # Featherless sometimes returns an empty body
+            last_error = ValueError(f"empty response: {response.model_dump_json()[:300]}")
+            continue
         reply = response.choices[0].message.content or ""
         try:
             return _parse(reply)
