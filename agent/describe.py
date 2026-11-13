@@ -37,3 +37,21 @@ def where(shift: Shift) -> str:
 def describe(shift: Shift, with_id: bool = False) -> str:
     line = f"{when(shift)} at {where(shift)}: {shift.task_summary}"
     return f"[{shift.id}] {line}" if with_id else line
+
+
+def label(shift: Shift) -> str:
+    """Short name for messages on a phone, e.g. "Thu event 12–17" or "Daily gym 06–09"."""
+    if shift.recurrence == "daily":
+        day = "Daily"
+    elif shift.recurrence == "weekdays":
+        day = "Mon–Fri"
+    elif shift.date:
+        day = f"{date.fromisoformat(shift.date):%a}"
+    elif shift.date_options:
+        day = "/".join(f"{date.fromisoformat(d):%a}" for d in shift.date_options)
+    else:
+        return f"{shift.request_id} (date tbc)"
+    hours = f"{shift.start[:2]}–{shift.end[:2]}" if shift.start and shift.end else ""
+    if hours and not shift.hours_confirmed:
+        hours = "~" + hours
+    return f"{day} {shift.request_id} {hours}".strip()
