@@ -24,6 +24,7 @@ class Cleaner:
     email: str = ""                # where a new recruit's work contract is sent
     constraints: list[str] = field(default_factory=list)  # learned from replies, e.g. "never weekends"
     max_travel_minutes: Optional[int] = None  # learned when they say "too far"
+    contract_status: str = ""      # "" (existing staff), "sent" or "signed"
 
 
 @dataclass

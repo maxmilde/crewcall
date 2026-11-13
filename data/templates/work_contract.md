@@ -13,4 +13,5 @@ and {name}, {home_area} (the Worker)
 6. Duration: from {start_date} for an indefinite period.
 7. Termination: either party may end this contract in writing, subject to the notice period required by law.
 
-Signed electronically by reply on {start_date}.
+Signature (Employer): ____________________    Signature (Worker): ____________________
+Date: {start_date}

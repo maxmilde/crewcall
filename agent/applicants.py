@@ -5,7 +5,7 @@ Approved people get the work contract by email and offers for the open shifts.
 """
 import uuid
 
-from agent import roster
+from agent import events, roster
 from agent.documents import draft_contract
 from agent.domain import settings
 from agent.outreach import compose
@@ -54,8 +54,10 @@ def on_applicant(chat_id: str, text: str) -> None:
     person = Cleaner(id=f"new-{uuid.uuid4().hex[:6]}", name=known["name"], home_area=known["home_area"],
                      telegram_chat_id=chat_id, email=known["email"], notes=f"available: {known['availability']}")
     roster.add_cleaners([person])
-    send_email(person.email, "Your work contract", draft_contract(person))
-    send(chat_id, "Welcome to the team! Your work contract is in your email.")
+    send_email(person.email, "Your work contract: please sign", draft_contract(person))
+    person.contract_status = "sent"
+    events.log("recruit", f"{person.name} joined the team; work contract sent for signing")
+    send(chat_id, "Welcome to the team! Your work contract is in your email, please sign it before your first shift.")
     open_now = roster.open_shifts()
     if open_now:
         send(chat_id, compose(person, open_now))
