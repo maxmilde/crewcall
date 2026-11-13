@@ -16,6 +16,15 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:45 — Agent B (Zahid)
+Done (branch zahid/telegram-bot, now includes max/inbox merged in, HANDOFF conflict resolved):
+- run_bot.main() starts gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests)); off until GMAIL_* are in .env.
+- A forwarded/long owner message now goes to workflow.new_requests too (same entry point as the inbox; id request<N>). Shorter pasted requests still reach owner_chat's new_request action.
+- Agreed (from the humans): freeze 17:45; no backup video, live demo; inbox is Max's, I don't build it.
+Ready to merge: zahid/telegram-bot contains max/inbox, so merging it alone is enough (merging max/inbox afterwards changes nothing).
+Next (mine): Apify travel times (integrations/apify_travel.py) + agent/matching.py shortlist, then send_email.
+Blocked on: nothing.
+
 ## 16:30 — Agent B (Zahid)
 Done (branch zahid/telegram-bot): owner command /status (also "status" / "summary"), in integrations/run_bot.py. Per job: "Thu event ~12–17: 1/2 (Anna Svobodová)". No model call. Shown in the bot's command menu.
 Needs from A (agent/workflow.py), Zahid's wish: the owner shouldn't get every cleaner message, only the result.
@@ -53,6 +62,17 @@ Done (branch zahid/telegram-bot): integrations/telegram_bot.py, Build order step
 Read your 15:15/14:50 notes: owner = my phone, real cleaners only, add_worker gives the link. My OWNER_CHAT_ID question is answered.
 Next: send_buttons, notify_owner, ask_owner; then routing (owner -> owner_chat.handle / forwarded email -> workflow.start, start=apply -> applicants, workers -> on_reply/on_button).
 Needs from A: nothing. Blocked on: nothing.
+
+## 15:45 — Agent A (Max)
+Agreed with Zahid: Max owns the Gmail inbox (integrations/gmail_inbox.py, only that file in integrations/).
+- gmail_inbox.watch(on_requests, taken) -> polls the work Gmail every 10 s (IMAP, app password), each unread email -> Request(id=<sender's first name>, raw_text=subject+body).
+- workflow.new_requests(requests): entry point for both the inbox and emails the owner forwards in Telegram (owner_chat now recognises a pasted/forwarded client request).
+- .env: GMAIL_ADDRESS, GMAIL_APP_PASSWORD.
+Needs from B: in integrations/run_bot.py, at startup add:
+    from integrations import gmail_inbox
+    gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests))
+(Does nothing if the Gmail settings are empty.)
+Blocked on: nothing.
 
 ## 15:15 — Agent A (Max)
 Decided with Max and Zahid: NO simulated cleaners in the demo. All cleaners are real phones (Zahid's friends + Max). Owner = Zahid's phone (OWNER_CHAT_ID).

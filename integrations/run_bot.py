@@ -2,7 +2,8 @@
 
 Routes each incoming message:
 - owner, /status (or "status", "summary") -> how many agreed per job, and who
-- owner, a forwarded or long message -> a new client request (workflow.start, then staff)
+- owner, a forwarded or long message -> a new client request (workflow.new_requests)
+- client emails in the work Gmail inbox -> workflow.new_requests (integrations/gmail_inbox.py, Max's)
 - owner, anything else -> owner_chat.handle, answer sent back
 - known worker -> workflow.on_reply / on_button
 - anyone else, or /start apply -> agent/applicants.py
@@ -12,6 +13,7 @@ from datetime import datetime
 
 from agent import applicants, owner_chat, roster, workflow
 from agent.describe import label
+from integrations import gmail_inbox
 from integrations import telegram_bot as bot
 from shared.schemas import Request
 
@@ -43,12 +45,10 @@ def on_owner(msg: dict) -> None:
     if not _is_email(msg):
         bot.notify_owner(owner_chat.handle(text))
         return
-    request = Request(id=f"request-{len(workflow.requests) + 1}", raw_text=text,
+    request = Request(id=f"request{len(workflow.requests) + 1}", raw_text=text,
                       received_at=datetime.now().isoformat(timespec="seconds"))
     bot.notify_owner("Got the email, reading it now...")
-    shifts = workflow.start([request])
-    if shifts:
-        workflow.staff(shifts)
+    workflow.new_requests([request])
 
 
 def on_unknown(chat_id: str, text: str) -> None:
@@ -69,6 +69,7 @@ def main() -> None:
     for c in roster.cleaners.values():
         state = "linked" if c.telegram_chat_id else f"https://t.me/{name}?start={c.id}"
         print(f"  {c.id} {c.name}: {state}")
+    gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests))  # off until GMAIL_* are in .env
     bot._api("setMyCommands", commands=[{"command": "status", "description": "How many agreed per job, and who"}])
     bot.notify_owner("Agent is online. Forward me a client email, or send /status to see who agreed.")
     bot.listen(workflow.on_reply, workflow.on_button, on_owner, on_unknown)
