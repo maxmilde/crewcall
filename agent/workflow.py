@@ -73,13 +73,21 @@ def start(new_requests: list[Request]) -> list[Shift]:
     for s in shifts:
         if s.headcount is None:
             answer = ask_owner(f"❓ How many people for {label(s)} ({s.task_summary})?")
-            s.headcount = int(answer) if answer.isdigit() and int(answer) > 0 else 1
+            words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+            digits = "".join(ch for ch in answer if ch.isdigit())
+            s.headcount = int(digits) if digits and int(digits) > 0 else words.get(answer.strip().lower(), 1)
             events.log("owner", f"Owner set {s.id} to {s.headcount} people")
     roster.save()
-    if ask_owner("Shall I start asking people? (yes/no)").lower() not in ("y", "yes"):
+    if not is_yes(ask_owner("Shall I start asking people? (yes/no)")):
         return []
     events.log("owner", "Owner approved: contacting workers")
     return shifts
+
+
+def is_yes(answer: str) -> bool:
+    """Owners answer "ok", "sure", "go ahead", "ano"..., not only "yes"."""
+    a = answer.strip().lower()
+    return a.startswith(("y", "ok", "sure", "go", "ano", "jo", "fine", "do it", "👍", "send"))
 
 
 def _hours(s: Shift) -> str:
@@ -93,7 +101,7 @@ def _request_summary(req: Request, req_shifts: list[Shift]) -> str:
     places = list(dict.fromkeys(where(s) for s in req_shifts))
     lines = [f"📩 New request: {client_names.get(req.id, req.id)}", f"📍 {' / '.join(places) or 'location tbc'}"]
     for s in req_shifts:
-        day = label(s).split(f" {s.request_id}")[0]
+        day = label(s).split(" ")[0]
         people = f"{s.headcount} {'person' if s.headcount == 1 else 'people'}" if s.headcount else "how many people?"
         lines.append(f"• {day} {_hours(s)}: {s.task_summary}, {people}")
     known = sum(s.headcount or 0 for s in req_shifts)
@@ -151,6 +159,7 @@ def _candidates(shift: Shift) -> list[str]:
     times = minutes[shift.id]
     asked = roster.asked_before(shift.id)
     ordered = shortlist(shift, pool, times)
+    ordered += [c for c in pool if c not in ordered]  # no travel time (no address or no route): still asked, last
     ids = [
         c.id for c in ordered
         if c.id not in asked and (c.max_travel_minutes is None or times.get(c.id, 0) <= c.max_travel_minutes)
@@ -183,15 +192,19 @@ def staff(shifts: list[Shift]) -> None:
 
     def offer(cid: str) -> None:
         cleaner = roster.cleaners[cid]
-        nearest = min(minutes[s.id][cid] for s in per_cleaner[cid])
-        text = compose(cleaner, per_cleaner[cid]) + f"\n(About {nearest} min from you by public transport.)"
+        known = [minutes[s.id][cid] for s in per_cleaner[cid] if cid in minutes.get(s.id, {})]
+        nearest = min(known) if known else None
+        text = compose(cleaner, per_cleaner[cid]) + (f"\n(About {nearest} min from you by public transport.)" if nearest else "")
         roster.mark_asked(cid, [s.id for s in per_cleaner[cid]])
         _send(cid, text)
-        events.log("offer", f"Offer to {cleaner.name} ({nearest} min away): {', '.join(s.id for s in per_cleaner[cid])}")
+        events.log("offer", f"Offer to {cleaner.name} ({nearest or '?'} min away): {', '.join(s.id for s in per_cleaner[cid])}")
 
     with ThreadPoolExecutor(max_workers=8) as pool:  # offers are written in parallel
         list(pool.map(offer, per_cleaner))
-    asked = ", ".join(f"{roster._name(c)} ({min(minutes[s.id][c] for s in per_cleaner[c])} min)" for c in per_cleaner)
+    def away(c):
+        known = [minutes[s.id][c] for s in per_cleaner[c] if c in minutes.get(s.id, {})]
+        return f" ({min(known)} min)" if known else ""
+    asked = ", ".join(f"{roster._name(c)}{away(c)}" for c in per_cleaner)
     skipped = [s for s in skipped if s.split(" (")[0] not in {roster._name(c) for c in per_cleaner}]
     notify_owner(f"📤 Asked {len(per_cleaner)} {'person' if len(per_cleaner) == 1 else 'people'}, nearest first: {asked}"
                  + ("\n⏭ Skipped: " + ", ".join(dict.fromkeys(skipped)) if skipped else ""))
@@ -345,7 +358,8 @@ def decide(shift: Shift) -> str:
     if action not in ("ask_more", "facebook_post"):
         action = "tell_owner"
     words = {"ask_more": "asking more people", "facebook_post": "nobody left, drafting a Facebook post", "tell_owner": "needs you"}
-    notify_owner(f"🟠 {label(shift)} still needs {shift.headcount - confirmed}: {words[action]}.")
+    reason = str(choice.get("reason") or "").strip()
+    notify_owner(f"🟠 {label(shift)} still needs {(shift.headcount or 1) - confirmed}: {words[action]}." + (f"\n🤔 {reason}" if reason else ""))
     events.log("decision", f"{shift.id} open ({confirmed}/{shift.headcount}) → {action.replace('_', ' ')}: {choice.get('reason', '')}")
     if action == "tell_owner":
         notify_owner(f"⚠️ I can't fill {label(shift)} sensibly. How do you want to handle it?")

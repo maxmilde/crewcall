@@ -47,7 +47,8 @@ def on_applicant(chat_id: str, text: str) -> None:
 
     send(chat_id, "Thank you! The owner will get back to you shortly.")
     summary = "\n".join(f"{k}: {known[k]}" for k in FIELDS)
-    if ask_owner(f"🙋 New applicant from your Facebook post:\n{summary}\nAdd them to your team? (yes/no)").lower() not in ("y", "yes"):
+    from agent.workflow import is_yes
+    if not is_yes(ask_owner(f"🙋 New applicant from your Facebook post:\n{summary}\nAdd them to your team? (yes/no)")):
         send(chat_id, "Thank you for applying. We don't have a place for you right now.")
         return
 

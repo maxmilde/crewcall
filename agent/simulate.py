@@ -28,6 +28,8 @@ def owner(question):
 S.ask_owner = owner
 import agent.workflow as W  # noqa: E402  (after patching ask_owner)
 W.ask_owner = owner
+W.notify_owner, W.send, W.send_buttons = S.notify_owner, S.send, S.send_buttons  # terminal, not Telegram
+W.travel_minutes, W.shortlist = S.travel_minutes, S.shortlist  # fake times: no Apify credits
 
 roster.CSV_FILE = Path("data/cleaners_sim.csv")  # the simulation never overwrites the real contact list
 roster.CSV_FILE.write_text(Path("data/sim_cleaners.csv").read_text(encoding="utf-8"), encoding="utf-8")
