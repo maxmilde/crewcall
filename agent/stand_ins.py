@@ -33,3 +33,7 @@ def travel_minutes(cleaners: list[Cleaner], address: str, arrive_by: str) -> dic
 def shortlist(shift: Shift, cleaners: list[Cleaner], minutes: dict[str, int]) -> list[Cleaner]:
     """Nearest first; no hard cut-off."""
     return sorted((c for c in cleaners if c.id in minutes), key=lambda c: minutes[c.id])
+
+
+def send_email(to: str, subject: str, body: str) -> None:
+    print(f"\n  >> EMAIL to {to}: {subject}\n" + "\n".join(f"     {line}" for line in body.splitlines()[:6]) + "\n     ...")
