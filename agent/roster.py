@@ -176,6 +176,8 @@ def save() -> None:
         "entries": [asdict(e) for e in entries],
     }
     STATE_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    if CSV_FILE.exists() and cleaners:
+        save_cleaners_csv()
 
 
 def load() -> None:
@@ -188,13 +190,36 @@ def load() -> None:
     entries.extend(RosterEntry(**e) for e in data["entries"])
 
 
-def load_cleaners_csv(path: str = "data/cleaners.csv") -> None:
-    """Columns: id,name,home_area,language,telegram_chat_id,simulated,email,notes."""
+CSV_COLUMNS = ["id", "name", "home_area", "language", "telegram_chat_id", "simulated", "email", "notes",
+               "max_travel_minutes", "constraints", "contract_status"]
+CSV_FILE = Path("data/cleaners.csv")
+
+
+def load_cleaners_csv(path: Path | str | None = None) -> None:
+    """The owner's contact list. Learned details (travel limit, rules, contract) are columns too."""
     import csv
-    with open(path, newline="", encoding="utf-8") as f:
+    with open(path or CSV_FILE, newline="", encoding="utf-8") as f:
         add_cleaners([
             Cleaner(id=row["id"], name=row["name"], home_area=row["home_area"], language=row["language"] or "en",
                     telegram_chat_id=row["telegram_chat_id"], simulated=row["simulated"].lower() == "true",
-                    email=row["email"], notes=row["notes"])
+                    email=row["email"], notes=row["notes"],
+                    max_travel_minutes=int(row["max_travel_minutes"]) if (row.get("max_travel_minutes") or "").isdigit() else None,
+                    constraints=[c for c in (row.get("constraints") or "").split("; ") if c],
+                    contract_status=row.get("contract_status") or "")
             for row in csv.DictReader(f)
         ])
+
+
+def save_cleaners_csv(path: Path | str | None = None) -> None:
+    """Write what the agent learned back into the contact list, so the owner can open it in Excel."""
+    import csv
+    with open(path or CSV_FILE, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        for c in cleaners.values():
+            writer.writerow({
+                "id": c.id, "name": c.name, "home_area": c.home_area, "language": c.language,
+                "telegram_chat_id": c.telegram_chat_id, "simulated": str(c.simulated).lower(), "email": c.email,
+                "notes": c.notes, "max_travel_minutes": c.max_travel_minutes or "",
+                "constraints": "; ".join(c.constraints), "contract_status": c.contract_status,
+            })

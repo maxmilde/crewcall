@@ -1,13 +1,13 @@
-id,name,home_area,language,telegram_chat_id,simulated,email,notes
-c01,Max,Vinohrady,en,,false,,real phone
-c02,Ondřej Beneš,Karlín,en,,true,,
-c03,Volunteer,Smíchov,en,,false,,real phone
-c04,Anna Svobodová,Žižkov,en,,true,,
-c05,Petr Dvořák,Nusle,en,,true,,
-c06,Eva Králová,Holešovice,en,,true,,
-c07,Jan Novák,Dejvice,en,,true,,
-c08,Lucie Černá,Libeň,en,,true,,
-c09,Tomáš Procházka,Vršovice,en,,true,,
-c10,Marie Veselá,Břevnov,en,,true,,
-c11,Jakub Horák,Modřany,en,,true,,
-c12,Tereza Marková,Letňany,en,,true,,
+id,name,home_area,language,telegram_chat_id,simulated,email,notes,max_travel_minutes,constraints,contract_status
+c01,Max,Vinohrady,en,,false,,real phone,,,
+c02,Ondřej Beneš,Karlín,en,,true,,,,,
+c03,Volunteer,Smíchov,en,,false,,real phone,,,
+c04,Anna Svobodová,Žižkov,en,,true,,,,,
+c05,Petr Dvořák,Nusle,en,,true,,,,,
+c06,Eva Králová,Holešovice,en,,true,,,,,
+c07,Jan Novák,Dejvice,en,,true,,,,,
+c08,Lucie Černá,Libeň,en,,true,,,,,
+c09,Tomáš Procházka,Vršovice,en,,true,,,,,
+c10,Marie Veselá,Břevnov,en,,true,,,,,
+c11,Jakub Horák,Modřany,en,,true,,,,,
+c12,Tereza Marková,Letňany,en,,true,,,,,
