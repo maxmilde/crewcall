@@ -5,7 +5,7 @@ from shared.llm import chat_json
 
 PROMPT = """You are the staffing assistant of a small business owner. She wrote you a message.
 Pick ONE action and return JSON:
-{"action": "answer" | "set_headcount" | "remove_worker" | "client_reply" | "unknown",
+{"action": "answer" | "set_headcount" | "remove_worker" | "client_reply" | "facebook_post" | "unknown",
  "shift_id": "id from the list" or null,
  "headcount": integer or null,
  "worker": "worker name exactly as in the roster" or null,
@@ -15,6 +15,7 @@ Pick ONE action and return JSON:
 - set_headcount: she wants more or fewer people on a shift. headcount is the NEW total (current + change).
 - remove_worker: she wants a worker taken off a shift. The agent then finds a replacement.
 - client_reply: she wants the draft email to the client.
+- facebook_post: she wants a job post for a shift (e.g. "post Friday on Facebook").
 - unknown: anything else, or anything unclear. Say briefly what you can do.
 Never invent shifts or people."""
 
@@ -47,6 +48,10 @@ def handle(text: str) -> str:
             workflow.on_cancel(worker.id, shift.id)
             return f"Took {worker.name} off {shift.id} and started finding a replacement."
         return "That person isn't confirmed on that shift."
+
+    if action == "facebook_post" and shift:
+        workflow.recruit([shift])
+        return "Draft is above: post it in your group. Replies come to me through the bot."
 
     if action == "client_reply":
         request_id = shift.request_id if shift else next(iter(workflow.requests), None)

@@ -194,8 +194,15 @@ def next_steps(shifts) -> None:
     if more:
         staff(more)  # one message per worker, even when several shifts reopen
     if post:
-        notify_owner("Draft for your Facebook group (it links to our Telegram bot):\n\n" + draft_post(post))
-        events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in post)}")
+        recruit(post)
+
+
+def recruit(shifts: list[Shift]) -> str:
+    """7. Draft the Facebook post for the owner; applicants answer through the bot."""
+    post = draft_post(shifts)
+    notify_owner("Draft for your Facebook group (it links to our Telegram bot):\n\n" + post)
+    events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in shifts)}")
+    return post
 
 
 def decide(shift: Shift) -> str:
