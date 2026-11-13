@@ -35,5 +35,5 @@ def shortlist(shift: Shift, cleaners: list[Cleaner], minutes: dict[str, int]) ->
     return sorted((c for c in cleaners if c.id in minutes), key=lambda c: minutes[c.id])
 
 
-def send_email(to: str, subject: str, body: str) -> None:
+def send_email(to: str, subject: str, body: str, attachments: dict[str, str] | None = None) -> None:
     print(f"\n  >> EMAIL to {to}: {subject}\n" + "\n".join(f"     {line}" for line in body.splitlines()[:6]) + "\n     ...")

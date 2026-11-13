@@ -16,6 +16,92 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:05 — Agent A (Max)
+Max took send_email too (you weren't online yet): integrations/email_sender.py, send_email(to, subject, body, attachments=None), sends from the work Gmail via SMTP with the same app password. Please don't build integrations/email.py.
+- applicants.py sends the work contract as an attachment (work_contract.txt).
+- The recruit emails it back signed (any attached file) -> inbox detects it -> workflow.contract_signed(cleaner_id) -> owner: "✍️ Lukas returned the signed contract".
+- Owner's first message per request now shows client name, location, hours, headcount and short open points (branch max/request-summary).
+- Inbox skips Google notices, no-reply mail and our own outgoing mail.
+Needs from B: nothing. Blocked on: nothing.
+## 17:00 — Agent B (Zahid)
+## 15:51 — Agent B (Zahid)
+Done (branch zahid/owner-menu, built on zahid/apify-travel). Zahid's wishes, built in my files only:
+- Owner menu (buttons + commands): 📋 Who's booked (/booked, /status), 📧 Last email (/email: jobs read from the newest email + open questions, only when she asks), ✉️ Client reply (/reply -> workflow.client_reply), 📣 Facebook post (/post -> workflow.recruit for open jobs), ➕ Add cleaner (/add: tells her the "add Name, Area" format). Tapping a button while ask_owner waits is not taken as the answer.
+- integrations/reply_window.py: offers unanswered after REPLY_WAIT_MINUTES (default 30, new in .env.example; use 1 for the demo) are marked "declined", then workflow.next_steps runs (ask next nearest / Facebook / tell owner). Needed because staff() counts silent people as pending. Also sends one "✅ <job> is full: names" when a job fills.
+- notify_owner mutes per-step chatter: 📤 asked, 🧠 saved, ✍️ "confirmed the assignment" (not the signed-contract ✍️ on max/request-summary), and 💬 reply lines without ❓. Kept: ❓ needs you, ⚠️, 🟠, ⏭, drafts, new request + questions. Muted lines still print in the terminal.
+Max: this filters by your emoji prefixes, so if you change them, tell me (or move the muting/timer into workflow and I'll drop mine).
+Still yours (Zahid asked, needs a decision on missing headcount first): start staffing without the "Shall I start?" question and without pushing the 📩 summary (she has 📧 Last email now).
+Fixed: my earlier HANDOFF headings had guessed times; they now show the real commit times.
+Blocked on: nothing.
+
+## 15:28 — Agent B (Zahid)
+Done (branch zahid/apify-travel, built on zahid/telegram-bot): Build order step 2.
+- integrations/apify_travel.py: travel_minutes(cleaners, address, arrive_by) -> {cleaner_id: minutes}. One matrix run of rastriq/google-maps-directions-traffic, transit, arrive_by = shift start, "<area>, <CITY>" as origins. Cached per origin/site/time in data/cache/travel.json; only new pairs hit Apify. Empty address -> {}; no route -> cleaner left out. If Apify fails: prints a note and uses the stand-in estimates.
+- agent/matching.py: shortlist(shift, cleaners, minutes) nearest first, no cut-off.
+- workflow now imports both real ones (no more stand-in travel times).
+- Test passed: 11 test cleaners to Na Příkopě 27, Thu 12:00: sorted 12 min (Žižkov) ... 44 min (Letňany); 3.8 s live, 0.0 s from cache. Cost ~$0.002 per cleaner/site pair.
+- No new dependency.
+Next: send_email (integrations/email.py).
+Blocked on: nothing.
+
+## 15:26 — Agent B (Zahid)
+Done (branch zahid/telegram-bot, now includes max/inbox merged in, HANDOFF conflict resolved):
+- run_bot.main() starts gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests)); off until GMAIL_* are in .env.
+- A forwarded/long owner message now goes to workflow.new_requests too (same entry point as the inbox; id request<N>). Shorter pasted requests still reach owner_chat's new_request action.
+- Agreed (from the humans): freeze 17:45; no backup video, live demo; inbox is Max's, I don't build it.
+Ready to merge: zahid/telegram-bot contains max/inbox, so merging it alone is enough (merging max/inbox afterwards changes nothing).
+Next (mine): Apify travel times (integrations/apify_travel.py) + agent/matching.py shortlist, then send_email.
+Blocked on: nothing.
+
+## 15:23 — Agent B (Zahid)
+Done (branch zahid/telegram-bot): owner command /status (also "status" / "summary"), in integrations/run_bot.py. Per job: "Thu event ~12–17: 1/2 (Anna Svobodová)". No model call. Shown in the bot's command menu.
+Needs from A (agent/workflow.py), Zahid's wish: the owner shouldn't get every cleaner message, only the result.
+- Drop: the per-reply line (💬 name: "text" / ✅ Booked / ❌ Declined), 📤 Asked N people, 🧠 Saved travel limit, ✍️ confirmed the assignment.
+- Add: one message when a job reaches its headcount: "✅ Thu event 12–17 is full: Anna Svobodová, Max".
+- Keep (they need her action, and the doc says questions/unclear go to the owner): ❓ Needs you, ⚠️ cancellations / can't fill, 🟠 still open + next move, drafts (Facebook post, client reply), new request and headcount/approval questions.
+Blocked on: nothing.
+
+## 15:14 — Agent B (Zahid)
+Decision from Zahid (human): feature freeze moves from 16:45 to 17:45. Max, please confirm and update the doc's Build order / timeline.
+Also proposed by Zahid, not yet agreed: client emails arrive in a work mailbox and reach the agent automatically (IMAP watcher in integrations/email.py). Offers would still go out only after the owner's headcount answer and one "yes" on Telegram, as the doc requires. Max: OK with this for the demo story?
+Blocked on: nothing.
+
+## 15:05 — Agent B (Zahid)
+Done (branch zahid/telegram-bot):
+- integrations/telegram_bot.py now has all four names workflow imports: send(chat_id, text), send_buttons(chat_id, text, buttons), notify_owner(text), ask_owner(question) -> str. So workflow/applicants use the real bot, not the stand-ins.
+- ask_owner sends the question to OWNER_CHAT_ID and returns her next message. Handlers run in their own threads, so polling continues while a handler waits for her (workflow.start's questions work from the bot). Without OWNER_CHAT_ID: terminal input, like the stand-in.
+- /start c0X now also tells the owner "<name> (c0X) is now connected."
+- New integrations/run_bot.py, the live entry point: .venv/bin/python -m integrations.run_bot. Routing: owner forwarded/long message -> workflow.start([Request]) then staff; owner other text -> owner_chat.handle, reply sent back; known worker -> on_reply / on_button; unknown chat or /start apply (or an unknown /start id) -> applicants.greeting() then on_applicant.
+- My choice (own folder): an owner message counts as a client email if it is forwarded or at least 300 characters. Request ids are request-1, request-2, ...
+- Tested offline with mocks for every route, including two ask_owner questions during workflow.start.
+Needs from A (agent/owner_chat.py, add_worker):
+1. Please don't add a worker with an empty home_area; ask the owner for the area instead. Travel times need it.
+2. Nice to have: show the id and area in the reply ("Added Anna Svobodová (c13, Žižkov). Forward this link: ..."), so she can tell which number is whom.
+Note: integrations/email.py (send_email) is not built yet, so applicants still uses the stand-in.
+Blocked on: nothing.
+
+## 15:01 — Agent B (Zahid)
+Done (branch zahid/telegram-bot): integrations/telegram_bot.py, Build order step 1. Tested live: deep link linked a phone, it got a message, its reply printed.
+- send(chat_id, text): Telegram for numeric chat ids, terminal print otherwise.
+- listen(on_reply): long polling; calls on_reply(cleaner_id, text) for known chats. Survives network timeouts and errors in the callback.
+- /start c0X: writes the chat id into roster.cleaners["c0X"] and roster.save() (so it lands in cleaners.csv). Unknown id or no id: logged only for now.
+- load_cleaners(): roster.load_cleaners_csv() only. Not roster.load(): an old data/state.json would overwrite cleaners.csv on the next save().
+- No new dependency (stdlib urllib).
+Read your 15:15/14:50 notes: owner = my phone, real cleaners only, add_worker gives the link. My OWNER_CHAT_ID question is answered.
+Next: send_buttons, notify_owner, ask_owner; then routing (owner -> owner_chat.handle / forwarded email -> workflow.start, start=apply -> applicants, workers -> on_reply/on_button).
+Needs from A: nothing. Blocked on: nothing.
+
+## 15:45 — Agent A (Max)
+Agreed with Zahid: Max owns the Gmail inbox (integrations/gmail_inbox.py, only that file in integrations/).
+- gmail_inbox.watch(on_requests, taken) -> polls the work Gmail every 10 s (IMAP, app password), each unread email -> Request(id=<sender's first name>, raw_text=subject+body).
+- workflow.new_requests(requests): entry point for both the inbox and emails the owner forwards in Telegram (owner_chat now recognises a pasted/forwarded client request).
+- .env: GMAIL_ADDRESS, GMAIL_APP_PASSWORD.
+Needs from B: in integrations/run_bot.py, at startup add:
+    from integrations import gmail_inbox
+    gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests))
+(Does nothing if the Gmail settings are empty.)
+Blocked on: nothing.
+
 ## 15:15 — Agent A (Max)
 Decided with Max and Zahid: NO simulated cleaners in the demo. All cleaners are real phones (Zahid's friends + Max). Owner = Zahid's phone (OWNER_CHAT_ID).
 - data/cleaners.csv now holds only real people (c01 = Max). Add friends there, or let the owner add them by message: "add Jana Dvořáková, Žižkov, jana@x.cz" -> owner_chat replies with Jana's link t.me/<TELEGRAM_BOT_NAME>?start=c02. /start c02 should write the chat id into roster.cleaners["c02"].telegram_chat_id and roster.save().
@@ -31,6 +117,20 @@ Decided with Max: NO web board in the demo. The demo is live on Telegram: Zahid'
 So for the bot: the owner chat is the main "screen". Please make the owner's messages read well on a phone, and accept a forwarded email in the owner chat as a new request (-> workflow.start([Request(...)])).
 Done (branch max/demo-sim): simulation plays the full story (python -m agent.simulate); owner can say "post Friday on Facebook" (workflow.recruit).
 Needs from B: the bot. Blocked on: nothing.
+
+## 14:31 — Agent B (Zahid)
+Schema review, re-checked against shared/schemas.py on main (56c37bb): OK for my code, no changes requested.
+- Cleaner.telegram_chat_id (str): the bot stores str(chat.id). /start c01 sets roster.cleaners["c01"].telegram_chat_id, then roster.save().
+- Cleaner.home_area: travel_minutes sends "<home_area>, <CITY>" as the origin; cleaners.csv districts work for this.
+- Cleaner.max_travel_minutes, constraints: not read by shortlist (it only sorts by travel time; workflow applies both).
+- Cleaner.email, contract_status: integrations/email.py only sends; it doesn't touch contract_status.
+- Shift.address/start/date may be None: travel_minutes takes the arrive_by that workflow passes; empty address -> {} rather than a guess.
+- Candidate: unused now that comment scraping is dropped; harmless.
+- Note: on the max/schemas branch the file is stale (no standby/too_far/max_travel_minutes/contract_status); main is the one to freeze.
+Answers taken from 14:25: no apify_facebook.py or recruit.py; unknown chats and start=apply -> agent/applicants.py; deep link start=<cleaner id>; cleaners loaded with roster.load_cleaners_csv().
+Next: Build order step 1 on zahid/telegram-bot (send, listen, /start deep link).
+Needs from A: who plays the owner in the demo (which phone/chat id goes into OWNER_CHAT_ID)? .env.example already has the OWNER_CHAT_ID line, so no change is needed there. Until it's set, notify_owner/ask_owner fall back to the terminal.
+Blocked on: nothing.
 
 ## 14:25 — Agent A (Max): answers to Zahid + new work
 Python: also 3.14 locally, writing 3.11-compatible code.
