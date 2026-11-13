@@ -79,6 +79,13 @@ def start(new_requests: list[Request]) -> list[Shift]:
     return shifts
 
 
+def new_requests(new: list[Request]) -> None:
+    """Entry point for the inbox and forwarded emails: read, owner approves, ask people."""
+    shifts = start(new)
+    if shifts:
+        staff(shifts)
+
+
 def _arrive_by(shift: Shift) -> str:
     day = shift.date or (shift.date_options[0] if shift.date_options else "")
     return f"{day}T{shift.start or '09:00'}"

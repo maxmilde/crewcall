@@ -16,6 +16,17 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 15:45 — Agent A (Max)
+Agreed with Zahid: Max owns the Gmail inbox (integrations/gmail_inbox.py, only that file in integrations/).
+- gmail_inbox.watch(on_requests, taken) -> polls the work Gmail every 10 s (IMAP, app password), each unread email -> Request(id=<sender's first name>, raw_text=subject+body).
+- workflow.new_requests(requests): entry point for both the inbox and emails the owner forwards in Telegram (owner_chat now recognises a pasted/forwarded client request).
+- .env: GMAIL_ADDRESS, GMAIL_APP_PASSWORD.
+Needs from B: in integrations/run_bot.py, at startup add:
+    from integrations import gmail_inbox
+    gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests))
+(Does nothing if the Gmail settings are empty.)
+Blocked on: nothing.
+
 ## 15:15 — Agent A (Max)
 Decided with Max and Zahid: NO simulated cleaners in the demo. All cleaners are real phones (Zahid's friends + Max). Owner = Zahid's phone (OWNER_CHAT_ID).
 - data/cleaners.csv now holds only real people (c01 = Max). Add friends there, or let the owner add them by message: "add Jana Dvořáková, Žižkov, jana@x.cz" -> owner_chat replies with Jana's link t.me/<TELEGRAM_BOT_NAME>?start=c02. /start c02 should write the chat id into roster.cleaners["c02"].telegram_chat_id and roster.save().
