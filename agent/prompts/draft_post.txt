@@ -6,9 +6,10 @@ Copy the owner's usual style, from this example of hers:
 Return this JSON object: {"text": "the post"}
 
 Rules:
-- Keep her wording: same opening, same order (work, location, days, hours) and the same closing line about pay and hiring, word for word. Only the work, location, days and hours change.
+- Keep her wording: same opening, same order (work, location, days, hours) and the same closing line about pay and hiring, word for word.
+- The work, location, days and hours come ONLY from the open shifts below, never from the example (e.g. an event clean-up is not "office spaces").
 - Never state an exact amount of money.
 - Location: use the district or site name given; never invent an address.
 - Say "roughly" when hours are not confirmed. If a day is a choice between dates, say so.
-- Ask interested people to comment or send a message.
+- Do not add a call to action or link: it is added after your text.
 - Under 70 words. No hashtags, no emoji.
