@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from shared.schemas import Request
 
 load_dotenv()
-POLL_SECONDS = 10
+POLL_SECONDS = 3
 SKIP_SENDERS = ("no-reply", "noreply", "do-not-reply", "mailer-daemon", "@accounts.google.com", "@google.com")
 
 
@@ -106,8 +106,10 @@ def watch(on_requests: Callable[[list[Request]], None], taken: Callable[[], set[
         while True:
             try:
                 new = fetch_new(taken(), workflow.contract_signed)
-                if new:
-                    on_requests(new)
+                if new:  # handled in the background: the inbox keeps checking while the owner answers
+                    for r in new:
+                        workflow.notify_owner(f"📨 Email from {r.id} received, reading it…")
+                    threading.Thread(target=on_requests, args=(new,), daemon=True).start()
             except Exception as error:  # a network hiccup must not stop the agent
                 print(f"[inbox] {type(error).__name__}: {error}")
             time.sleep(POLL_SECONDS)
