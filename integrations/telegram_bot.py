@@ -77,8 +77,23 @@ def send_buttons(chat_id: str, text: str, buttons: list[str]) -> None:
     send(chat_id, text, {"inline_keyboard": [[{"text": b, "callback_data": b[:64]}] for b in buttons]})
 
 
+QUIET = ("📤", "🧠")  # progress notes the owner doesn't need; she gets the result instead
+menu_markup: dict | None = None  # the owner's button menu, set by run_bot
+menu_texts: set[str] = set()  # button labels: never taken as an answer to ask_owner
+
+
+def _quiet(text: str) -> bool:
+    """Per-step chatter: offers sent, memory saved, assignment tapped, and reply lines that need nothing from her."""
+    if text.startswith(QUIET) or (text.startswith("✍️") and "confirmed the assignment" in text):
+        return True  # a signed contract (also ✍️) still reaches her
+    return text.startswith("💬") and "\n" in text and "❓" not in text
+
+
 def notify_owner(text: str) -> None:
-    send(owner_chat_id() or "OWNER", text)
+    if _quiet(text):
+        print("  [owner, muted] " + text.splitlines()[0])
+        return
+    send(owner_chat_id() or "OWNER", text, menu_markup)
 
 
 def ask_owner(question: str) -> str:
@@ -143,7 +158,7 @@ def _handle(update: dict, on_reply, on_button, on_owner, on_unknown) -> None:
         return
     chat_id, text = str(msg["chat"]["id"]), msg["text"].strip()
     if chat_id == owner_chat_id():
-        if _asking.is_set():
+        if _asking.is_set() and text not in menu_texts and not text.startswith("/"):
             _answers.put(text)
         elif on_owner and not text.startswith("/start"):
             _spawn(on_owner, msg)
