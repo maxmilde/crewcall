@@ -257,13 +257,20 @@ def contract_signed(cleaner_id: str) -> None:
 
 @_locked
 def on_button(cleaner_id: str, button: str) -> None:
-    if button == "I agree":
-        for e in roster.entries:
-            if e.cleaner_id == cleaner_id and e.status == "confirmed" and not e.agreed_at:
-                roster.agree(cleaner_id, e.shift_id)
+    if button != "I agree":
+        return
+    agreed = []
+    for e in roster.entries:
+        if e.cleaner_id == cleaner_id and e.status == "confirmed" and not e.agreed_at:
+            roster.agree(cleaner_id, e.shift_id)
+            agreed.append(label(roster.shifts[e.shift_id]))
+    if agreed:  # the worker always sees that the tap worked
+        _send(cleaner_id, "✅ Thanks, you're booked: " + ", ".join(agreed) + ". See you there!")
         notify_owner(f"✍️ {roster._name(cleaner_id)} confirmed the assignment.")
         events.log("reply", f"{roster._name(cleaner_id)} tapped \"I agree\"")
         roster.save()
+    else:
+        _send(cleaner_id, "Thanks! There's nothing new to confirm right now.")
 
 
 DECIDE_PROMPT = """You coordinate staffing for a small business. A shift is still missing people and
