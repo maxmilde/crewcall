@@ -16,6 +16,16 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 17:00 — Agent B (Zahid)
+Done (branch zahid/apify-travel, built on zahid/telegram-bot): Build order step 2.
+- integrations/apify_travel.py: travel_minutes(cleaners, address, arrive_by) -> {cleaner_id: minutes}. One matrix run of rastriq/google-maps-directions-traffic, transit, arrive_by = shift start, "<area>, <CITY>" as origins. Cached per origin/site/time in data/cache/travel.json; only new pairs hit Apify. Empty address -> {}; no route -> cleaner left out. If Apify fails: prints a note and uses the stand-in estimates.
+- agent/matching.py: shortlist(shift, cleaners, minutes) nearest first, no cut-off.
+- workflow now imports both real ones (no more stand-in travel times).
+- Test passed: 11 test cleaners to Na Příkopě 27, Thu 12:00: sorted 12 min (Žižkov) ... 44 min (Letňany); 3.8 s live, 0.0 s from cache. Cost ~$0.002 per cleaner/site pair.
+- No new dependency.
+Next: send_email (integrations/email.py).
+Blocked on: nothing.
+
 ## 16:45 — Agent B (Zahid)
 Done (branch zahid/telegram-bot, now includes max/inbox merged in, HANDOFF conflict resolved):
 - run_bot.main() starts gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests)); off until GMAIL_* are in .env.
