@@ -61,6 +61,10 @@ def _send(cleaner_id: str, text: str, buttons: list[str] | None = None) -> None:
 
 # 1. Emails in: read them all at once, owner sets headcounts and approves
 def start(new_requests: list[Request]) -> list[Shift]:
+    seen = {r.raw_text.strip() for r in requests.values()}
+    new_requests = [r for r in new_requests if r.raw_text.strip() not in seen]  # same email twice: handle once
+    if not new_requests:
+        return []
     with ThreadPoolExecutor(max_workers=4) as pool:
         parsed = list(pool.map(parse_request, new_requests))
     shifts = []
@@ -78,7 +82,17 @@ def start(new_requests: list[Request]) -> list[Shift]:
             s.headcount = int(digits) if digits and int(digits) > 0 else words.get(answer.strip().lower(), 1)
             events.log("owner", f"Owner set {s.id} to {s.headcount} people")
     roster.save()
-    if not is_yes(ask_owner("Shall I start asking people? (yes/no)")):
+    names = ", ".join(dict.fromkeys(client_names.get(r.id, r.id) for r in new_requests))
+    for _ in range(3):
+        answer = ask_owner(f"Shall I start asking people for {names}? (yes/no)")
+        if is_yes(answer):
+            break
+        if is_no(answer):
+            notify_owner(f"Okay, I won't contact anyone for {names}.")
+            return []
+        from agent import owner_chat  # she asked something else first: answer it, then ask again
+        notify_owner(owner_chat.handle(answer))
+    else:
         return []
     events.log("owner", "Owner approved: contacting workers")
     return shifts
@@ -88,6 +102,11 @@ def is_yes(answer: str) -> bool:
     """Owners answer "ok", "sure", "go ahead", "ano"..., not only "yes"."""
     a = answer.strip().lower()
     return a.startswith(("y", "ok", "sure", "go", "ano", "jo", "fine", "do it", "👍", "send"))
+
+
+def is_no(answer: str) -> bool:
+    a = answer.strip().lower()
+    return a in ("n", "no", "nope", "ne", "stop", "cancel", "not now", "don't", "dont") or a.startswith(("no ", "no,", "not "))
 
 
 def _hours(s: Shift) -> str:
@@ -215,6 +234,9 @@ def staff(shifts: list[Shift]) -> None:
 @_locked
 def on_reply(cleaner_id: str, text: str) -> None:
     cleaner = roster.cleaners[cleaner_id]
+    if text.strip().startswith("/"):  # e.g. /start again from someone already connected
+        _send(cleaner_id, f"Hi {cleaner.name}, you're connected. Job offers will arrive here.")
+        return
     if cleaner_id in waiting_for_travel:  # answer to "how far would you travel?"
         waiting_for_travel.discard(cleaner_id)
         cleaner.max_travel_minutes, area = learn_travel(text)
