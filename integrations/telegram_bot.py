@@ -78,8 +78,7 @@ def send_buttons(chat_id: str, text: str, buttons: list[str]) -> None:
 
 
 QUIET = ("📤", "🧠")  # progress notes the owner doesn't need; she gets the result instead
-menu_markup: dict | None = None  # the owner's button menu, set by run_bot
-menu_texts: set[str] = set()  # button labels: never taken as an answer to ask_owner
+menu_texts: set[str] = set()  # menu labels: never taken as an answer to ask_owner
 
 
 def _quiet(text: str) -> bool:
@@ -94,7 +93,7 @@ def notify_owner(text: str) -> None:
     if _quiet(text):
         print("  [owner, muted] " + text.splitlines()[0])
         return
-    send(owner_chat_id() or "OWNER", text, menu_markup)
+    send(owner_chat_id() or "OWNER", text)
 
 
 def ask_owner(question: str) -> str:

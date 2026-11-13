@@ -1,7 +1,7 @@
 """Run the live agent on Telegram: python -m integrations.run_bot
 
 Routes each incoming message:
-- owner, a menu button or command -> MENU (who's booked, last email, client reply, Facebook post, add cleaner)
+- owner, a Menu command (/booked, /email, /reply, /post, /add) -> MENU (who's booked, last email, client reply, Facebook post, add cleaner)
 - owner, a forwarded or long message -> a new client request (workflow.new_requests)
 - client emails in the work Gmail inbox -> workflow.new_requests (integrations/gmail_inbox.py, Max's)
 - owner, anything else -> owner_chat.handle, answer sent back
@@ -85,7 +85,6 @@ MENU = {
     "➕ Add cleaner": ("add", add_cleaner),
 }
 COMMANDS = {f"/{cmd}": fn for cmd, fn in MENU.values()} | {"/status": who_is_booked}
-LAYOUT = [["📋 Who's booked", "📧 Last email"], ["✉️ Client reply", "📣 Facebook post"], ["➕ Add cleaner"]]
 
 
 def on_owner(msg: dict) -> None:
@@ -124,14 +123,13 @@ def main() -> None:
     for c in roster.cleaners.values():
         state = "linked" if c.telegram_chat_id else f"https://t.me/{name}?start={c.id}"
         print(f"  {c.id} {c.name}: {state}")
-    bot.menu_markup = {"keyboard": [[{"text": t} for t in row] for row in LAYOUT],
-                       "resize_keyboard": True, "is_persistent": True}
     bot.menu_texts = set(MENU)
     bot._api("setMyCommands", commands=[{"command": cmd, "description": label_}
                                         for label_, (cmd, _) in MENU.items()])
     gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests))  # off until GMAIL_* are in .env
     reply_window.watch()
-    bot.notify_owner("Agent is online. Forward me a client email anytime, or use the buttons below.")
+    bot.send(bot.owner_chat_id(), "Agent is online. Forward me a client email anytime, or open the Menu.",
+             {"remove_keyboard": True})  # clears the old button keyboard; commands live in the Menu
     bot.listen(workflow.on_reply, workflow.on_button, on_owner, on_unknown)
 
 
