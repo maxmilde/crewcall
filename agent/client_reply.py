@@ -1,12 +1,12 @@
 """Draft the email back to the client. The owner approves it before it is sent."""
-from pathlib import Path
 
 from agent import roster
 from agent.describe import describe
+from agent.domain import prompt
 from shared.llm import chat_json
 from shared.schemas import OpenQuestion, Request, Shift
 
-PROMPT = (Path(__file__).parent / "prompts" / "client_reply.txt").read_text()
+PROMPT = prompt("client_reply")
 
 
 def draft_client_reply(request: Request, shifts: list[Shift], questions: list[OpenQuestion]) -> str:
@@ -21,4 +21,4 @@ def draft_client_reply(request: Request, shifts: list[Shift], questions: list[Op
         + "\n\nOpen questions noted by the agent:\n" + "\n".join(f"- {q.text}" for q in questions)
     )
     data = chat_json(PROMPT, user)
-    return f"Subject: {data.get('subject', 'Your cleaning request')}\n\n{data.get('body', '')}".strip()
+    return f"Subject: {data.get('subject', 'Your request')}\n\n{data.get('body', '')}".strip()

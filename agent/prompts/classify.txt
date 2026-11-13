@@ -1,11 +1,12 @@
-A cleaner was offered one or more shifts and replied in free text. Work out what they said.
+A {{worker}} was offered one or more shifts and replied in free text. Work out what they said.
 
 Return this JSON object:
 {
   "label": "yes" | "no" | "partial" | "question" | "unclear",
   "accepted_shift_ids": ["shift id", ...],
-  "question": "the cleaner's question" or null,
-  "constraints": ["standing constraint", ...]
+  "question": "the {{worker}}'s question" or null,
+  "constraints": ["standing constraint", ...],
+  "too_far": true or false
 }
 
 Rules:
@@ -13,4 +14,5 @@ Rules:
 - question: they ask something (e.g. about the place or the hours) instead of deciding; put the question in "question". If they accept some shifts and also ask something, use partial or yes and still fill "question".
 - unclear: anything ambiguous. Do not guess.
 - Match days by name or date: "only Thursday" means the shift on Thursday. Only use ids from the offered list.
-- constraints: lasting rules about their availability stated in the reply, written short in English, e.g. "never weekends", "nothing after 18:00", "too far from Žižkov". Not one-off reasons like "busy this Friday". Empty if none.
+- constraints: lasting rules about their availability stated in the reply, written short in English, e.g. "never weekends", "nothing after 18:00", "too far from Žižkov". Not one-off answers to this offer: "only Thursday" or "busy this Friday" choose among the offered shifts and are NOT constraints. Empty if none.
+- too_far: true when the distance or travel time is a reason they decline.

@@ -45,7 +45,7 @@ def _parse(text: str) -> dict:
     return result
 
 
-def chat_json(system: str, user: str) -> dict:
+def chat_json(system: str, user: str, max_tokens: int = MAX_TOKENS, think: bool = False) -> dict:
     """Send one system + user message and return the reply as a dict.
 
     Retries once if the reply is empty, cut off or not valid JSON, then raises
@@ -62,14 +62,16 @@ def chat_json(system: str, user: str) -> dict:
             model=os.environ["FEATHERLESS_MODEL"],
             messages=messages,
             temperature=0,
-            max_tokens=MAX_TOKENS,
+            max_tokens=max_tokens,
+            # DeepSeek "thinks" before answering unless told not to: slower, and it can run away
+            extra_body={"chat_template_kwargs": {"thinking": think}},
         )
         if not response.choices:  # Featherless sometimes returns an empty body
             last_error = ValueError(f"empty response: {response.model_dump_json()[:300]}")
             continue
         reply = response.choices[0].message.content or ""
         if response.choices[0].finish_reason == "length":
-            last_error = ValueError(f"reply cut off at {MAX_TOKENS} tokens")
+            last_error = ValueError(f"reply cut off at {max_tokens} tokens")
             continue
         try:
             return _parse(reply)

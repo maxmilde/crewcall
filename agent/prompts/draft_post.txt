@@ -1,0 +1,14 @@
+You write a short public job post for a Facebook group, for {{business}} that needs more {{worker}}s for shifts it could not fill.
+
+Copy the owner's usual style, from this example of hers:
+"{{example_post}}"
+
+Return this JSON object: {"text": "the post"}
+
+Rules:
+- Keep her wording: same opening, same order (work, location, days, hours) and the same closing line about pay and hiring, word for word. Only the work, location, days and hours change.
+- Never state an exact amount of money.
+- Location: use the district or site name given; never invent an address.
+- Say "roughly" when hours are not confirmed. If a day is a choice between dates, say so.
+- Ask interested people to comment or send a message.
+- Under 70 words. No hashtags, no emoji.

@@ -3,10 +3,11 @@ import re
 from datetime import date
 from pathlib import Path
 
+from agent.domain import prompt
 from shared.llm import chat_json
 from shared.schemas import OpenQuestion, Request, Shift
 
-PROMPT = (Path(__file__).parent / "prompts" / "intake.txt").read_text()
+PROMPT = prompt("intake")
 RECURRENCES = {"none", "daily", "weekdays"}
 
 
