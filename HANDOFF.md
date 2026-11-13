@@ -20,7 +20,7 @@ Blocked on: <blocker, or "nothing">
 Done (branch zahid/owner-menu, built on zahid/apify-travel). Zahid's wishes, built in my files only:
 - Owner menu (buttons + commands): 📋 Who's booked (/booked, /status), 📧 Last email (/email: jobs read from the newest email + open questions, only when she asks), ✉️ Client reply (/reply -> workflow.client_reply), 📣 Facebook post (/post -> workflow.recruit for open jobs), ➕ Add cleaner (/add: tells her the "add Name, Area" format). Tapping a button while ask_owner waits is not taken as the answer.
 - integrations/reply_window.py: offers unanswered after REPLY_WAIT_MINUTES (default 30, new in .env.example; use 1 for the demo) are marked "declined", then workflow.next_steps runs (ask next nearest / Facebook / tell owner). Needed because staff() counts silent people as pending. Also sends one "✅ <job> is full: names" when a job fills.
-- notify_owner mutes per-step chatter: 📤 asked, 🧠 saved, ✍️ agreed, and 💬 reply lines without ❓. Kept: ❓ needs you, ⚠️, 🟠, ⏭, drafts, new request + questions. Muted lines still print in the terminal.
+- notify_owner mutes per-step chatter: 📤 asked, 🧠 saved, ✍️ "confirmed the assignment" (not the signed-contract ✍️ on max/request-summary), and 💬 reply lines without ❓. Kept: ❓ needs you, ⚠️, 🟠, ⏭, drafts, new request + questions. Muted lines still print in the terminal.
 Max: this filters by your emoji prefixes, so if you change them, tell me (or move the muting/timer into workflow and I'll drop mine).
 Still yours (Zahid asked, needs a decision on missing headcount first): start staffing without the "Shall I start?" question and without pushing the 📩 summary (she has 📧 Last email now).
 Fixed: my earlier HANDOFF headings had guessed times; they now show the real commit times.
