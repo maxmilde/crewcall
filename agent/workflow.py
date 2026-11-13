@@ -7,7 +7,7 @@ client goes through the owner.
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from agent import events, roster
+from agent import events, job_status, roster
 from agent.client_reply import draft_client_reply
 from agent.describe import describe, label, where
 from agent.documents import draft_assignment
@@ -39,7 +39,9 @@ lock = threading.RLock()                   # replies arrive from several threads
 def _locked(fn):
     def wrapper(*args, **kwargs):
         with lock:
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            job_status.refresh()  # the owner's job cards follow every change
+            return result
     wrapper.__name__, wrapper.__doc__ = fn.__name__, fn.__doc__
     return wrapper
 
@@ -316,6 +318,7 @@ def next_steps(shifts) -> None:
         staff(more)  # one message per worker, even when several shifts reopen
     if post:
         recruit(post)
+    job_status.refresh()
 
 
 def recruit(shifts: list[Shift]) -> str:
