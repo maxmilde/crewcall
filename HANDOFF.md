@@ -16,6 +16,14 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:05 — Agent A (Max)
+Max took send_email too (you weren't online yet): integrations/email_sender.py, send_email(to, subject, body, attachments=None), sends from the work Gmail via SMTP with the same app password. Please don't build integrations/email.py.
+- applicants.py sends the work contract as an attachment (work_contract.txt).
+- The recruit emails it back signed (any attached file) -> inbox detects it -> workflow.contract_signed(cleaner_id) -> owner: "✍️ Lukas returned the signed contract".
+- Owner's first message per request now shows client name, location, hours, headcount and short open points (branch max/request-summary).
+- Inbox skips Google notices, no-reply mail and our own outgoing mail.
+Needs from B: nothing. Blocked on: nothing.
+
 ## 15:45 — Agent A (Max)
 Agreed with Zahid: Max owns the Gmail inbox (integrations/gmail_inbox.py, only that file in integrations/).
 - gmail_inbox.watch(on_requests, taken) -> polls the work Gmail every 10 s (IMAP, app password), each unread email -> Request(id=<sender's first name>, raw_text=subject+body).

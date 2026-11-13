@@ -26,6 +26,8 @@ SKIP_SENDERS = ("no-reply", "noreply", "do-not-reply", "mailer-daemon", "@accoun
 def _automatic(msg: email.message.Message) -> bool:
     """Notifications from Google and other robots are not client requests."""
     sender = parseaddr(msg.get("From", ""))[1].lower()
+    if sender == os.getenv("GMAIL_ADDRESS", "").lower():  # our own outgoing mail
+        return True
     return any(s in sender for s in SKIP_SENDERS) or msg.get("Auto-Submitted", "no").lower() != "no"
 
 

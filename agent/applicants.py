@@ -17,7 +17,7 @@ try:
 except ImportError:
     from agent.stand_ins import ask_owner, send
 try:
-    from integrations.email import send_email
+    from integrations.email_sender import send_email
 except ImportError:
     from agent.stand_ins import send_email
 
@@ -54,7 +54,10 @@ def on_applicant(chat_id: str, text: str) -> None:
     person = Cleaner(id=f"new-{uuid.uuid4().hex[:6]}", name=known["name"], home_area=known["home_area"],
                      telegram_chat_id=chat_id, email=known["email"], notes=f"available: {known['availability']}")
     roster.add_cleaners([person])
-    send_email(person.email, "Your work contract: please sign", draft_contract(person))
+    send_email(person.email, "Your work contract: please sign",
+               f"Hi {person.name},\n\nwelcome to the team! Your work contract is attached. "
+               "Please print or e-sign it and send it back to this address as a file before your first shift.\n\nThank you!",
+               {"work_contract.txt": draft_contract(person)})
     person.contract_status = "sent"
     events.log("recruit", f"{person.name} joined the team; work contract sent for signing")
     send(chat_id, "Welcome to the team! Your work contract is in your email, please sign it before your first shift.")
