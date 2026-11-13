@@ -318,7 +318,8 @@ def next_steps(shifts) -> None:
 def recruit(shifts: list[Shift]) -> str:
     """7. Draft the Facebook post for the owner; applicants answer through the bot."""
     post = draft_post(shifts)
-    notify_owner("📣 Draft for your Facebook group (applicants reach me through the bot):\n\n" + post)
+    why = "; ".join(f"{label(s)} has {len(roster._confirmed(s.id))} of {s.headcount or '?'}" for s in shifts)
+    notify_owner(f"📣 {why}, and nobody else in your team is free.\nDraft for your Facebook group (applicants reach me through the bot):\n\n" + post)
     events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in shifts)}")
     return post
 
