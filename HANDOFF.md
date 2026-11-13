@@ -17,6 +17,17 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done: agent/roster.py on branch max/roster (built on max/replies). Module-level state, saved to data/state.json.
+- add_shifts(shifts), add_cleaners(cleaners), mark_asked(cleaner_id, shift_ids)
+- apply(reply) -> list[str] (readable notes; also stores reply constraints on the cleaner)
+- agree(cleaner_id, shift_id), cancel(cleaner_id, shift_id)
+- open_shifts() -> list[Shift], is_full(shift_id), asked_before(shift_id) -> set[str] (for re-staffing), summary() -> str
+- save(), load()
+Unknown headcount counts as open until the owner sets it.
+Needs from B: nothing.
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done (branch max/replies, built on max/intake + latest max/schemas):
 - agent/outreach.py: compose(cleaner: Cleaner, shifts: list[Shift]) -> str. Under 60 words, PAY_TEXT from .env, ends "Reply yes, no, or which days you can do."
 - agent/replies.py: classify(reply_text: str, offered_shifts: list[Shift], cleaner_id: str = "") -> Reply. "Only Thursday" -> partial with the Thursday shift; also fills Reply.constraints ("never Thursdays") for cleaner memory.
