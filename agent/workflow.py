@@ -9,9 +9,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from agent import events, roster
 from agent.client_reply import draft_client_reply
-from agent.describe import describe, label
+from agent.describe import describe, label, where
 from agent.documents import draft_assignment
-from agent.intake import parse_request
+from agent.intake import client_names, parse_request
 from agent.outreach import compose, draft_post
 from agent.replies import classify, learn_travel
 from shared.llm import chat_json
@@ -65,8 +65,7 @@ def start(new_requests: list[Request]) -> list[Shift]:
         roster.add_shifts(req_shifts)
         shifts += req_shifts
         events.log("request", f"Email from {req.id}: {len(req_shifts)} shifts read")
-        notify_owner(f"📩 New request: {req.id}\n" + "\n".join(
-            f"• {label(s)}: {s.task_summary} ({s.headcount or '?'} {'person' if s.headcount == 1 else 'people'})" for s in req_shifts))
+        notify_owner(_request_summary(req, req_shifts))
     for s in shifts:
         if s.headcount is None:
             answer = ask_owner(f"❓ How many people for {label(s)} ({s.task_summary})?")
@@ -77,6 +76,29 @@ def start(new_requests: list[Request]) -> list[Shift]:
         return []
     events.log("owner", "Owner approved: contacting workers")
     return shifts
+
+
+def _hours(s: Shift) -> str:
+    if not (s.start and s.end):
+        return "hours tbc"
+    return f"{s.start}–{s.end}" + ("" if s.hours_confirmed else " (approx.)")
+
+
+def _request_summary(req: Request, req_shifts: list[Shift]) -> str:
+    """What the owner sees first: who, where, which shifts, what is still open."""
+    places = list(dict.fromkeys(where(s) for s in req_shifts))
+    lines = [f"📩 New request: {client_names.get(req.id, req.id)}", f"📍 {' / '.join(places) or 'location tbc'}"]
+    for s in req_shifts:
+        day = label(s).split(f" {s.request_id}")[0]
+        people = f"{s.headcount} {'person' if s.headcount == 1 else 'people'}" if s.headcount else "how many people?"
+        lines.append(f"• {day} {_hours(s)}: {s.task_summary}, {people}")
+    known = sum(s.headcount or 0 for s in req_shifts)
+    unknown = sum(1 for s in req_shifts if not s.headcount)
+    lines.append(f"👥 {known} people" + (f" + {unknown} {'shift' if unknown == 1 else 'shifts'} where you decide the headcount" if unknown else ""))
+    open_points = questions.get(req.id, [])
+    if open_points:
+        lines.append("❓ Still open for the client:\n" + "\n".join(f"  – {q.text}" for q in open_points))
+    return "\n".join(lines)
 
 
 def new_requests(new: list[Request]) -> None:

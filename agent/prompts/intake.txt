@@ -3,6 +3,7 @@ You read one client email and turn it into the shifts she must staff, plus quest
 
 Return this JSON object:
 {
+  "client": "the client's company or organisation name as written in the email, or null",
   "shifts": [
     {
       "site_name": string or null,
@@ -26,7 +27,9 @@ Rules:
 - If the client offers alternative dates for the same work ("Tuesday or Wednesday"), make ONE shift with those dates in date_options and date null. A single fixed date goes in date.
 - Resolve weekday and day/month dates to full ISO dates using the date the email was received. A recurring job with no start date has date null.
 - hours_confirmed: true only if the email presents the hours as final. Judge from the whole context: approximate, provisional or missing hours are false.
-- Never guess. A value the email does not give stays null: no invented headcount, hours, dates or address. For each missing value that the owner needs in order to staff the shift (how many people, what hours, which date, where), add a short, specific question.
+- Never guess. A value the email does not give stays null: no invented headcount, hours, dates or address.
+- questions: what the client still has to tell us (exact hours, which date, address). Each under 12 words, e.g. "Exact hours for the 19 and 20 Nov shifts?". Never ask how many people: the owner decides headcount herself. Never ask the client to choose between dates they offered: the owner picks.
+- client: the company asking for staff. If an intermediary forwards for their client, use the end client. Null if not stated.
 - Placeholders in square brackets like [venue] are real names hidden for privacy: use them as they are.
 - Ignore requests for a price or quote, site visits and photos: you only handle staffing and availability.
 - If the email gives no date or time at all, still return the work as a shift with null values, and ask the owner what is missing (e.g. "This is a quote request: when would the client want the work done?").

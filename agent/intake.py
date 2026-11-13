@@ -9,6 +9,7 @@ from shared.schemas import OpenQuestion, Request, Shift
 
 PROMPT = prompt("intake")
 RECURRENCES = {"none", "daily", "weekdays"}
+client_names: dict[str, str] = {}  # request id -> company name from the email, for the owner's messages
 
 
 def _iso_date(value) -> str | None:
@@ -66,6 +67,8 @@ def parse_request(request: Request) -> tuple[list[Shift], list[OpenQuestion]]:
     received = request.received_at or date.today().isoformat()
     user = f"Email received on: {received}\n\n{request.raw_text}"
     data = chat_json(PROMPT, user)
+    if isinstance(data.get("client"), str) and data["client"].strip():
+        client_names[request.id] = data["client"].strip()
     shifts = [
         _to_shift(raw, request.id, i)
         for i, raw in enumerate(data.get("shifts") or [], start=1)

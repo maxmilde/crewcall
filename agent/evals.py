@@ -82,7 +82,7 @@ INTAKE = [
      lambda s, q: len(s) == 2 and {x.date for x in s} == {"2026-11-16", "2026-11-18"} and all(x.headcount == 2 for x in s)),
     ("Could you send a few people this Saturday to clean up after our office party? Not sure about the time yet.",
      lambda s, q: len(s) == 1 and s[0].headcount is None and not s[0].hours_confirmed and s[0].date == "2026-11-14"
-     and any("how many" in x.text.lower() or "people" in x.text.lower() for x in q)),
+     and not any("how many" in x.text.lower() for x in q)),
     ("Please send us a quote for monthly window cleaning of our shop.",
      lambda s, q: all(x.start is None and x.date is None for x in s) and len(q) >= 1),
     ("Hi, 1 cleaner on Friday 20/11 from around 10 until lunchtime, office kitchen and toilets.",
