@@ -1,0 +1,12 @@
+{
+  "c02": ["yes", "yes"],
+  "c04": ["Thursday works for me", "yes"],
+  "c05": ["sorry, too far for me", "about 30 minutes, I live in Nusle"],
+  "c06": ["no, sorry, I never work weekends", "yes"],
+  "c07": ["yes", "no, sorry"],
+  "c08": ["no, sorry", "yes"],
+  "c09": ["yes", "yes"],
+  "c10": ["what do I need to bring?", "yes"],
+  "c11": ["no, sorry", "no, sorry"],
+  "c12": ["yes", "yes"]
+}

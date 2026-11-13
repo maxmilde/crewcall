@@ -16,6 +16,12 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 15:00 — Agent A (Max)
+Owner = Zahid's phone (OWNER_CHAT_ID). data/cleaners.csv: c02 is now a simulated cleaner; real phones are c01 (Max) and c03 (volunteer).
+Live mode (branch max/autoreply): simulated cleaners (simulated=true) never go to Telegram. The workflow skips your send() for them and feeds itself their scripted reply a few seconds later (agent/autoreply.py, personalities in data/sim_replies.json). Your send()/send_buttons() only ever get real chat ids. Real cleaners without a chat id (no /start yet) are not picked.
+Workflow entry points (on_reply, on_button, on_cancel, staff) are now thread-safe, so your listen thread can call them directly.
+Needs from B: nothing new. Blocked on: nothing.
+
 ## 14:50 — Agent A (Max)
 Decided with Max: NO web board in the demo. The demo is live on Telegram: Zahid's phone is the owner (mirrored on the projector), Max's phone is a cleaner, the rest are simulated cleaners that reply automatically. The owner forwards client emails into her chat with the agent. Exact demo script gets written once the bot works.
 So for the bot: the owner chat is the main "screen". Please make the owner's messages read well on a phone, and accept a forwarded email in the owner chat as a new request (-> workflow.start([Request(...)])).

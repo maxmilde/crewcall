@@ -9,7 +9,9 @@ import time
 from pathlib import Path
 
 import agent.stand_ins as S
-from agent import events, roster
+from agent import autoreply, events, roster
+
+autoreply.ENABLED = False  # this script replies for everyone itself
 from shared.schemas import Request
 
 PAUSE = 0 if "--fast" in sys.argv else 2.5

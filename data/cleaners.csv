@@ -1,6 +1,6 @@
 id,name,home_area,language,telegram_chat_id,simulated,email,notes
 c01,Max,Vinohrady,en,,false,,real phone
-c02,Zahid,Karlín,en,,false,,real phone
+c02,Ondřej Beneš,Karlín,en,,true,,
 c03,Volunteer,Smíchov,en,,false,,real phone
 c04,Anna Svobodová,Žižkov,en,,true,,
 c05,Petr Dvořák,Nusle,en,,true,,
