@@ -16,6 +16,16 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 15:15 — Agent A (Max)
+Decided with Max and Zahid: NO simulated cleaners in the demo. All cleaners are real phones (Zahid's friends + Max). Owner = Zahid's phone (OWNER_CHAT_ID).
+- data/cleaners.csv now holds only real people (c01 = Max). Add friends there, or let the owner add them by message: "add Jana Dvořáková, Žižkov, jana@x.cz" -> owner_chat replies with Jana's link t.me/<TELEGRAM_BOT_NAME>?start=c02. /start c02 should write the chat id into roster.cleaners["c02"].telegram_chat_id and roster.save().
+- The agent writes everything it learns back into data/cleaners.csv (chat ids, max travel, rules, contract status), so it is her living contact list.
+- Real cleaners without a chat id are never picked; your send()/send_buttons() only get real chat ids.
+- on_reply, on_button, on_cancel and staff are thread-safe: call them straight from your listen thread.
+- New .env: TELEGRAM_BOT_NAME (bot username, for invite links).
+- agent/simulate.py still exists for testing only (own list in data/sim_cleaners.csv).
+Needs from B: nothing new. Blocked on: nothing.
+
 ## 14:50 — Agent A (Max)
 Decided with Max: NO web board in the demo. The demo is live on Telegram: Zahid's phone is the owner (mirrored on the projector), Max's phone is a cleaner, the rest are simulated cleaners that reply automatically. The owner forwards client emails into her chat with the agent. Exact demo script gets written once the bot works.
 So for the bot: the owner chat is the main "screen". Please make the owner's messages read well on a phone, and accept a forwarded email in the owner chat as a new request (-> workflow.start([Request(...)])).

@@ -1,19 +1,24 @@
 """The owner talks to the agent in plain words. The model maps her message to one allowed action."""
+import os
+
 from agent import roster, workflow
 from agent.describe import describe
 from shared.llm import chat_json
+from shared.schemas import Cleaner
 
 PROMPT = """You are the staffing assistant of a small business owner. She wrote you a message.
 Pick ONE action and return JSON:
-{"action": "answer" | "set_headcount" | "remove_worker" | "client_reply" | "facebook_post" | "unknown",
+{"action": "answer" | "set_headcount" | "remove_worker" | "add_worker" | "client_reply" | "facebook_post" | "unknown",
  "shift_id": "id from the list" or null,
  "headcount": integer or null,
  "worker": "worker name exactly as in the roster" or null,
+ "new_worker": {"name": str, "home_area": str or null, "email": str or null} or null,
  "answer": "short reply to her"}
 
 - answer: she asks about the roster ("who's on Friday?", "what's still open?"). Answer from the roster only, in 1-3 short lines.
 - set_headcount: she wants more or fewer people on a shift. headcount is the NEW total (current + change).
 - remove_worker: she wants a worker taken off a shift. The agent then finds a replacement.
+- add_worker: she gives details of a new person for her team; fill new_worker.
 - client_reply: she wants the draft email to the client.
 - facebook_post: she wants a job post for a shift (e.g. "post Friday on Facebook").
 - unknown: anything else, or anything unclear. Say briefly what you can do.
@@ -48,6 +53,17 @@ def handle(text: str) -> str:
             workflow.on_cancel(worker.id, shift.id)
             return f"Took {worker.name} off {shift.id} and started finding a replacement."
         return "That person isn't confirmed on that shift."
+
+    new = data.get("new_worker") or {}
+    if action == "add_worker" and isinstance(new, dict) and isinstance(new.get("name"), str) and new["name"].strip():
+        worker_id = f"c{len(roster.cleaners) + 1:02d}"
+        while worker_id in roster.cleaners:
+            worker_id = f"c{int(worker_id[1:]) + 1:02d}"
+        roster.add_cleaners([Cleaner(id=worker_id, name=new["name"].strip(), home_area=new.get("home_area") or "",
+                                     email=new.get("email") or "")])
+        roster.save()
+        link = f"https://t.me/{os.getenv('TELEGRAM_BOT_NAME', '<bot>')}?start={worker_id}"
+        return f"Added {new['name'].strip()} to your team. Forward them this link; once they tap it they get offers:\n{link}"
 
     if action == "facebook_post" and shift:
         workflow.recruit([shift])
