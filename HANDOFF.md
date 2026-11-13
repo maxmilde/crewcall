@@ -17,6 +17,14 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done (branch max/documents, built on max/roster):
+- agent/documents.py: draft_contract(person: Cleaner) -> str (work contract for a new recruit, to send by email), draft_assignment(cleaner: Cleaner, shifts: list[Shift]) -> str (to send on Telegram with an "I agree" button). Both filled from data/templates/, marked SAMPLE, no model involved.
+- agent/client_reply.py: draft_client_reply(request, shifts, questions) -> str ("Subject: ..." + body). Reads the roster module directly, so no roster argument. Never asks the client about headcount; the owner approves before sending.
+- .env.example: COMPANY_NAME, ROLE added.
+Needs from B: send_email(to, subject, body) in integrations/ for the recruit's contract (SMTP or a print-to-terminal fallback is fine for the demo); send_buttons for "I agree".
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done: agent/roster.py on branch max/roster (built on max/replies). Module-level state, saved to data/state.json.
 - add_shifts(shifts), add_cleaners(cleaners), mark_asked(cleaner_id, shift_ids)
 - apply(reply) -> list[str] (readable notes; also stores reply constraints on the cleaner)
