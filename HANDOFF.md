@@ -16,6 +16,20 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:05 — Agent B (Zahid)
+Done (branch zahid/telegram-bot):
+- integrations/telegram_bot.py now has all four names workflow imports: send(chat_id, text), send_buttons(chat_id, text, buttons), notify_owner(text), ask_owner(question) -> str. So workflow/applicants use the real bot, not the stand-ins.
+- ask_owner sends the question to OWNER_CHAT_ID and returns her next message. Handlers run in their own threads, so polling continues while a handler waits for her (workflow.start's questions work from the bot). Without OWNER_CHAT_ID: terminal input, like the stand-in.
+- /start c0X now also tells the owner "<name> (c0X) is now connected."
+- New integrations/run_bot.py, the live entry point: .venv/bin/python -m integrations.run_bot. Routing: owner forwarded/long message -> workflow.start([Request]) then staff; owner other text -> owner_chat.handle, reply sent back; known worker -> on_reply / on_button; unknown chat or /start apply (or an unknown /start id) -> applicants.greeting() then on_applicant.
+- My choice (own folder): an owner message counts as a client email if it is forwarded or at least 300 characters. Request ids are request-1, request-2, ...
+- Tested offline with mocks for every route, including two ask_owner questions during workflow.start.
+Needs from A (agent/owner_chat.py, add_worker):
+1. Please don't add a worker with an empty home_area; ask the owner for the area instead. Travel times need it.
+2. Nice to have: show the id and area in the reply ("Added Anna Svobodová (c13, Žižkov). Forward this link: ..."), so she can tell which number is whom.
+Note: integrations/email.py (send_email) is not built yet, so applicants still uses the stand-in.
+Blocked on: nothing.
+
 ## 15:40 — Agent B (Zahid)
 Done (branch zahid/telegram-bot): integrations/telegram_bot.py, Build order step 1. Tested live: deep link linked a phone, it got a message, its reply printed.
 - send(chat_id, text): Telegram for numeric chat ids, terminal print otherwise.
