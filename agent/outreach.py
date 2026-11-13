@@ -17,7 +17,11 @@ def compose(cleaner: Cleaner, shifts: list[Shift]) -> str:
         f"Cleaner: {cleaner.name}\nLanguage: {cleaner.language}\n"
         f"Pay text: {pay}\nShifts:\n{shift_lines}"
     )
-    text = str(chat_json(COMPOSE_PROMPT, user).get("text", "")).strip()
+    try:
+        text = str(chat_json(COMPOSE_PROMPT, user, max_tokens=3000).get("text", "")).strip()
+    except ValueError:  # never let one bad model answer stop the offers
+        first = cleaner.name.split()[0]
+        text = f"Hi {first}, work available:\n{shift_lines}\n{pay}."
     if not text.endswith(CLOSING):
         text = f"{text}\n{CLOSING}".strip()
     return text

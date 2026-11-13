@@ -9,7 +9,7 @@ from typing import Literal, Optional
 
 Recurrence = Literal["none", "daily", "weekdays"]
 ReplyLabel = Literal["yes", "no", "partial", "question", "unclear"]
-RosterStatus = Literal["asked", "confirmed", "declined", "cancelled"]
+RosterStatus = Literal["asked", "confirmed", "standby", "declined", "cancelled"]
 
 
 @dataclass
@@ -23,6 +23,7 @@ class Cleaner:
     notes: str = ""
     email: str = ""                # where a new recruit's work contract is sent
     constraints: list[str] = field(default_factory=list)  # learned from replies, e.g. "never weekends"
+    max_travel_minutes: Optional[int] = None  # learned when they say "too far"
 
 
 @dataclass
@@ -75,6 +76,7 @@ class Reply:
     accepted_shift_ids: list[str] = field(default_factory=list)
     question: Optional[str] = None
     constraints: list[str] = field(default_factory=list)  # new standing constraints stated in this reply
+    too_far: bool = False          # they declined because of the distance
 
 
 @dataclass

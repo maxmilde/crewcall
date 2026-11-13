@@ -62,8 +62,8 @@ def apply(reply: Reply) -> list[str]:
             continue
         if entry.shift_id in reply.accepted_shift_ids:
             if is_full(entry.shift_id):
-                notes.append(f"{name} said yes to {entry.shift_id}, but it is already full")
-                entry.status = "declined"
+                entry.status = "standby"
+                notes.append(f"{name} is on standby for {entry.shift_id} (already full)")
             else:
                 entry.status = "confirmed"
                 notes.append(f"{name} confirmed {entry.shift_id}")
@@ -92,6 +92,22 @@ def open_shifts() -> list[Shift]:
     return [s for s in shifts.values() if not is_full(s.id)]
 
 
+def standby(shift_id: str) -> list[str]:
+    """Cleaners who said yes after the shift was full, first come first."""
+    return [e.cleaner_id for e in entries if e.shift_id == shift_id and e.status == "standby"]
+
+
+def pending(shift_id: str) -> list[str]:
+    return [e.cleaner_id for e in entries if e.shift_id == shift_id and e.status == "asked"]
+
+
+def confirm(cleaner_id: str, shift_id: str) -> None:
+    """Move a standby cleaner onto the shift."""
+    entry = _entry(cleaner_id, shift_id)
+    if entry and not is_full(shift_id):
+        entry.status = "confirmed"
+
+
 def asked_before(shift_id: str) -> set[str]:
     """Cleaners already offered this shift, so a re-staffing round skips them."""
     return {e.cleaner_id for e in entries if e.shift_id == shift_id}
@@ -113,6 +129,8 @@ def summary() -> str:
         lines.append(f"    confirmed {len(confirmed)}/{need}: {', '.join(names) or '-'}")
         if pending:
             lines.append(f"    waiting for: {', '.join(pending)}")
+        if standby(shift.id):
+            lines.append(f"    standby: {', '.join(_name(c) for c in standby(shift.id))}")
     return "\n".join(lines) or "No shifts yet."
 
 

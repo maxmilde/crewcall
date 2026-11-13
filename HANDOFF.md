@@ -17,6 +17,19 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done (branch max/workflow, built on max/post-domain): agent/workflow.py, the "Agent workflow" from the doc.
+- start(request) -> shifts: parse, owner sets missing headcounts and approves. staff(shifts): 2N nearest per shift, one offer per worker covering all their shifts, written in parallel, travel time added to the offer.
+- on_reply(cleaner_id, text), on_button(cleaner_id, "I agree"), on_cancel(cleaner_id, shift_id): roster updates, assignment with button, "too far" follow-up (saves max_travel_minutes + area), standby first on cancellation.
+- next_steps/decide: the only AI decision. For open shifts where everyone answered: ask_more | facebook_post | tell_owner, with code guards. client_reply(): draft for the owner only.
+- agent/stand_ins.py: terminal versions of send, send_buttons, notify_owner, ask_owner, travel_minutes, shortlist. workflow.py imports your real ones when they exist (integrations.telegram_bot, integrations.apify_travel, agent.matching), else the stand-ins.
+- agent/simulate.py: full scripted run, no Telegram/Apify needed: .venv/bin/python -m agent.simulate
+- chat_json: thinking is now OFF by default (chat_template_kwargs thinking=false): same quality, 3-5x faster, no runaway replies. Optional max_tokens and think=True.
+- Schema (draft): Cleaner.max_travel_minutes, Reply.too_far, RosterStatus "standby".
+- .gitignore: data/state*.json.
+Needs from B: in integrations/telegram_bot.py please also provide notify_owner(text) and ask_owner(question) -> str (owner's chat, OWNER_CHAT_ID in .env), and send_buttons(chat_id, text, buttons). listen should call workflow.on_reply(cleaner_id, text) / on_button(cleaner_id, button). shortlist: nearest first, no cut-off (workflow takes the first 2N and applies each worker's learned max).
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done (branch max/post-domain):
 - agent/outreach.py: draft_post(open_shifts: list[Shift]) -> str. Facebook post in the owner's style, "good pay", no amounts or invented benefits.
 - Domain config: data/domains/cleaning.json and events.json; DOMAIN in .env picks one (default cleaning). agent/domain.py: settings(), prompt(name), fill(text). All prompts and document templates now use it, so DOMAIN=events staffs event helpers with the same code.

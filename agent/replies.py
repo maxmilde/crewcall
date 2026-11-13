@@ -40,4 +40,21 @@ def classify(reply_text: str, offered_shifts: list[Shift], cleaner_id: str = "")
         accepted_shift_ids=accepted,
         question=question.strip() if isinstance(question, str) and question.strip() else None,
         constraints=constraints,
+        too_far=data.get("too_far") is True,
+    )
+
+
+TRAVEL_PROMPT = """A worker told us how far they are willing to travel and where they live.
+Return {"max_travel_minutes": integer or null, "home_area": "district or street" or null}.
+Convert hours to minutes. Null when not stated."""
+
+
+def learn_travel(answer_text: str) -> tuple[int | None, str | None]:
+    """Read a 'how far will you travel, where do you live' answer."""
+    data = chat_json(TRAVEL_PROMPT, answer_text)
+    minutes = data.get("max_travel_minutes")
+    area = data.get("home_area")
+    return (
+        minutes if isinstance(minutes, int) and minutes > 0 else None,
+        area.strip() if isinstance(area, str) and area.strip() else None,
     )
