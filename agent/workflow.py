@@ -246,6 +246,16 @@ def _tell_owner_about(cleaner, text: str, reply) -> None:
 
 
 @_locked
+def contract_signed(cleaner_id: str) -> None:
+    """The worker emailed back their signed work contract."""
+    cleaner = roster.cleaners[cleaner_id]
+    cleaner.contract_status = "signed"
+    roster.save()
+    events.log("recruit", f"{cleaner.name} returned the signed contract")
+    notify_owner(f"✍️ {cleaner.name} returned the signed contract. They're ready for their first shift.")
+
+
+@_locked
 def on_button(cleaner_id: str, button: str) -> None:
     if button == "I agree":
         for e in roster.entries:

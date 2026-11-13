@@ -55,8 +55,22 @@ def _client_id(msg: email.message.Message, taken: set[str]) -> str:
     return client
 
 
-def fetch_new(taken: set[str] = frozenset()) -> list[Request]:
-    """Unread emails as requests (marks them read)."""
+def _has_attachment(msg: email.message.Message) -> bool:
+    return any(part.get_filename() for part in msg.walk())
+
+
+def _signed_contract(msg: email.message.Message) -> str | None:
+    """A worker sending back their contract: known sender, contract sent, file attached."""
+    from agent import roster
+    sender = parseaddr(msg.get("From", ""))[1].lower()
+    for c in roster.cleaners.values():
+        if c.email and c.email.lower() == sender and c.contract_status == "sent" and _has_attachment(msg):
+            return c.id
+    return None
+
+
+def fetch_new(taken: set[str] = frozenset(), on_signed: Callable[[str], None] | None = None) -> list[Request]:
+    """Unread emails as requests (marks them read). Signed contracts go to on_signed instead."""
     box = imaplib.IMAP4_SSL("imap.gmail.com")
     box.login(os.environ["GMAIL_ADDRESS"], os.environ["GMAIL_APP_PASSWORD"])
     box.select("INBOX")
@@ -67,6 +81,11 @@ def fetch_new(taken: set[str] = frozenset()) -> list[Request]:
         msg = email.message_from_bytes(data[0][1])
         if _automatic(msg):
             continue  # fetched, so already marked read
+        signer = _signed_contract(msg)
+        if signer:
+            if on_signed:
+                on_signed(signer)
+            continue
         subject = str(make_header(decode_header(msg.get("Subject", ""))))
         client = _client_id(msg, set(taken) | {r.id for r in requests})
         requests.append(Request(id=client, raw_text=f"Subject: {subject}\n\n{_text(msg)}",
@@ -77,10 +96,12 @@ def fetch_new(taken: set[str] = frozenset()) -> list[Request]:
 
 def watch(on_requests: Callable[[list[Request]], None], taken: Callable[[], set[str]] = set) -> threading.Thread:
     """Check the inbox every POLL_SECONDS in the background and hand new requests over."""
+    from agent import workflow
+
     def loop():
         while True:
             try:
-                new = fetch_new(taken())
+                new = fetch_new(taken(), workflow.contract_signed)
                 if new:
                     on_requests(new)
             except Exception as error:  # a network hiccup must not stop the agent
