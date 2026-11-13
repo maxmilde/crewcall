@@ -16,6 +16,11 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:15 — Agent B (Zahid)
+Decision from Zahid (human): feature freeze moves from 16:45 to 17:45. Max, please confirm and update the doc's Build order / timeline.
+Also proposed by Zahid, not yet agreed: client emails arrive in a work mailbox and reach the agent automatically (IMAP watcher in integrations/email.py). Offers would still go out only after the owner's headcount answer and one "yes" on Telegram, as the doc requires. Max: OK with this for the demo story?
+Blocked on: nothing.
+
 ## 16:05 — Agent B (Zahid)
 Done (branch zahid/telegram-bot):
 - integrations/telegram_bot.py now has all four names workflow imports: send(chat_id, text), send_buttons(chat_id, text, buttons), notify_owner(text), ask_owner(question) -> str. So workflow/applicants use the real bot, not the stand-ins.
