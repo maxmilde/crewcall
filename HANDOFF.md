@@ -17,6 +17,11 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done (branch max/evals): agent/evals.py, 58 test cases over every AI step (classify, intake, compose, post, decide, owner chat, travel, applicants). Run: .venv/bin/python -m agent.evals [area]. 58/58 pass, ~15 s. Prompt fixes: conditional yeses and "wrong number" go to the owner; quote-only emails still produce a question for the owner.
+Needs from B: nothing. If you add AI steps (rank), feel free to add a test area in your own file.
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done (branch max/owner-chat):
 - agent/owner_chat.py: handle(text) -> str. Owner's plain-language messages: "who's on Friday?", "add one more person Thursday", "take Anna off Friday", "client reply". Model picks one allowed action; code checks it before anything changes.
 - agent/applicants.py: greeting() -> str, on_applicant(chat_id, text). Facebook applicants: collects name, area, availability, email; owner approves; contract by email; offers for open shifts.
