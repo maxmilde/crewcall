@@ -17,6 +17,18 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done (branch max/owner-chat):
+- agent/owner_chat.py: handle(text) -> str. Owner's plain-language messages: "who's on Friday?", "add one more person Thursday", "take Anna off Friday", "client reply". Model picks one allowed action; code checks it before anything changes.
+- agent/applicants.py: greeting() -> str, on_applicant(chat_id, text). Facebook applicants: collects name, area, availability, email; owner approves; contract by email; offers for open shifts.
+- stand_ins.send_email(to, subject, body).
+Needs from B (Telegram bot routing):
+- messages from OWNER_CHAT_ID -> owner_chat.handle(text), send the result back to the owner
+- known worker -> workflow.on_reply(cleaner_id, text); button tap -> workflow.on_button(cleaner_id, button)
+- unknown chat, or /start apply (the link in the Facebook post: t.me/<bot>?start=apply) -> send applicants.greeting() first, then applicants.on_applicant(chat_id, text)
+- integrations/email.py: send_email(to, subject, body) (SMTP, or print as fallback)
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done (branch max/workflow, built on max/post-domain): agent/workflow.py, the "Agent workflow" from the doc.
 - start(request) -> shifts: parse, owner sets missing headcounts and approves. staff(shifts): 2N nearest per shift, one offer per worker covering all their shifts, written in parallel, travel time added to the offer.
 - on_reply(cleaner_id, text), on_button(cleaner_id, "I agree"), on_cancel(cleaner_id, shift_id): roster updates, assignment with button, "too far" follow-up (saves max_travel_minutes + area), standby first on cancellation.
