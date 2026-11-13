@@ -16,6 +16,14 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:30 — Agent B (Zahid)
+Done (branch zahid/telegram-bot): owner command /status (also "status" / "summary"), in integrations/run_bot.py. Per job: "Thu event ~12–17: 1/2 (Anna Svobodová)". No model call. Shown in the bot's command menu.
+Needs from A (agent/workflow.py), Zahid's wish: the owner shouldn't get every cleaner message, only the result.
+- Drop: the per-reply line (💬 name: "text" / ✅ Booked / ❌ Declined), 📤 Asked N people, 🧠 Saved travel limit, ✍️ confirmed the assignment.
+- Add: one message when a job reaches its headcount: "✅ Thu event 12–17 is full: Anna Svobodová, Max".
+- Keep (they need her action, and the doc says questions/unclear go to the owner): ❓ Needs you, ⚠️ cancellations / can't fill, 🟠 still open + next move, drafts (Facebook post, client reply), new request and headcount/approval questions.
+Blocked on: nothing.
+
 ## 16:15 — Agent B (Zahid)
 Decision from Zahid (human): feature freeze moves from 16:45 to 17:45. Max, please confirm and update the doc's Build order / timeline.
 Also proposed by Zahid, not yet agreed: client emails arrive in a work mailbox and reach the agent automatically (IMAP watcher in integrations/email.py). Offers would still go out only after the owner's headcount answer and one "yes" on Telegram, as the doc requires. Max: OK with this for the demo story?
