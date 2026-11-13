@@ -13,7 +13,7 @@ load_dotenv()
 
 JSON_RULE = "Reply with one valid JSON object only. No prose, no markdown fences."
 TIMEOUT_SECONDS = 150   # a full answer takes about 1 minute at ~17 tokens/s
-MAX_TOKENS = 2000       # stops a model that keeps repeating itself
+MAX_TOKENS = 8000       # includes hidden "thinking" tokens; stops a runaway reply
 
 _client: OpenAI | None = None
 
