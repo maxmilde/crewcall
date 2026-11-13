@@ -2,6 +2,7 @@
 
 Source of truth: the project doc, https://claude.ai/artifact/YQaXgwLfsfgt8KWv6bbVAr
 Read all of it, every section, at the start of every session. Never copy it into the repo. If anything disagrees with it, the doc wins.
+The doc is live: the humans edit it during the day. Open it through the Claude Docs connector and re-read it before starting each new Build order step.
 
 ## Who you are
 Set in CLAUDE.local.md (not committed): "You are Agent A (Max)" or "You are Agent B (Zahid)".
