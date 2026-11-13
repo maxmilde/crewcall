@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from agent import events, roster
 from agent.client_reply import draft_client_reply
-from agent.describe import describe
+from agent.describe import describe, label
 from agent.documents import draft_assignment
 from agent.intake import parse_request
 from agent.outreach import compose, draft_post
@@ -65,14 +65,15 @@ def start(new_requests: list[Request]) -> list[Shift]:
         roster.add_shifts(req_shifts)
         shifts += req_shifts
         events.log("request", f"Email from {req.id}: {len(req_shifts)} shifts read")
-        notify_owner(f"Request from {req.id}:\n" + "\n".join(f"- {describe(s, True)}" for s in req_shifts))
+        notify_owner(f"📩 New request: {req.id}\n" + "\n".join(
+            f"• {label(s)}: {s.task_summary} ({s.headcount or '?'} {'person' if s.headcount == 1 else 'people'})" for s in req_shifts))
     for s in shifts:
         if s.headcount is None:
-            answer = ask_owner(f"How many people for {s.id} ({s.task_summary})?")
+            answer = ask_owner(f"❓ How many people for {label(s)} ({s.task_summary})?")
             s.headcount = int(answer) if answer.isdigit() and int(answer) > 0 else 1
             events.log("owner", f"Owner set {s.id} to {s.headcount} people")
     roster.save()
-    if ask_owner("Start contacting workers? (yes/no)").lower() not in ("y", "yes"):
+    if ask_owner("Shall I start asking people? (yes/no)").lower() not in ("y", "yes"):
         return []
     events.log("owner", "Owner approved: contacting workers")
     return shifts
@@ -129,6 +130,7 @@ def _candidates(shift: Shift) -> list[str]:
 @_locked
 def staff(shifts: list[Shift]) -> None:
     per_cleaner: dict[str, list[Shift]] = {}
+    skipped: list[str] = []
     for s in shifts:
         still_needed = 2 * (s.headcount or 1) - len(roster.pending(s.id)) - len(roster._confirmed(s.id))
         for cid in _candidates(s):
@@ -137,10 +139,13 @@ def staff(shifts: list[Shift]) -> None:
             other = roster.clash(cid, s) or next((p for p in per_cleaner.get(cid, []) if roster.overlaps(p, s)), None)
             if other:  # never double-book across clients
                 events.log("skip", f"{roster._name(cid)} skipped for {s.id}: already on {other.id} at that time")
+                skipped.append(f"{roster._name(cid)} (busy: {label(other)})")
                 continue
             per_cleaner.setdefault(cid, []).append(s)
             still_needed -= 1
     if not per_cleaner:
+        if skipped:
+            notify_owner("⏭ Nobody free to ask. Skipped: " + ", ".join(dict.fromkeys(skipped)))
         return
 
     def offer(cid: str) -> None:
@@ -153,7 +158,10 @@ def staff(shifts: list[Shift]) -> None:
 
     with ThreadPoolExecutor(max_workers=8) as pool:  # offers are written in parallel
         list(pool.map(offer, per_cleaner))
-    notify_owner(f"Sent offers to {len(per_cleaner)} workers: {', '.join(roster._name(c) for c in per_cleaner)}")
+    asked = ", ".join(f"{roster._name(c)} ({min(minutes[s.id][c] for s in per_cleaner[c])} min)" for c in per_cleaner)
+    skipped = [s for s in skipped if s.split(" (")[0] not in {roster._name(c) for c in per_cleaner}]
+    notify_owner(f"📤 Asked {len(per_cleaner)} {'person' if len(per_cleaner) == 1 else 'people'}, nearest first: {asked}"
+                 + ("\n⏭ Skipped: " + ", ".join(dict.fromkeys(skipped)) if skipped else ""))
     roster.save()
 
 
@@ -165,13 +173,13 @@ def on_reply(cleaner_id: str, text: str) -> None:
         waiting_for_travel.discard(cleaner_id)
         cleaner.max_travel_minutes, area = learn_travel(text)
         cleaner.home_area = area or cleaner.home_area
-        notify_owner(f"Saved for {cleaner.name}: max {cleaner.max_travel_minutes or '?'} min, lives in {cleaner.home_area}")
+        notify_owner(f"🧠 Saved for {cleaner.name}: max {cleaner.max_travel_minutes or '?'} min, lives in {cleaner.home_area}. Next time I'll only ask for jobs within that.")
         events.log("reply", f"Learned: {cleaner.name} travels max {cleaner.max_travel_minutes or '?'} min, lives in {cleaner.home_area}")
         roster.save()
         return
     offered = [roster.shifts[e.shift_id] for e in roster.entries if e.cleaner_id == cleaner_id and e.status == "asked"]
     if not offered:
-        notify_owner(f"{cleaner.name} wrote: {text}")
+        notify_owner(f"💬 {cleaner.name}: \"{text}\"")
         return
     reply = classify(text, offered, cleaner_id)
     events.log("reply", f"{cleaner.name}: \"{text}\" → {reply.label}" + (f" ({', '.join(reply.accepted_shift_ids)})" if reply.accepted_shift_ids else ""))
@@ -182,13 +190,30 @@ def on_reply(cleaner_id: str, text: str) -> None:
     if reply.too_far:
         waiting_for_travel.add(cleaner_id)
         _send(cleaner_id, "No problem. So I only ask you for jobs that suit you: how long a trip is fine for you, and which area do you live in?")
-    if reply.label in ("question", "unclear"):
-        notify_owner(f"{cleaner.name} replied: \"{text}\"" + (f"\nQuestion: {reply.question}" if reply.question else ""))
+    _tell_owner_about(cleaner, text, reply)
     confirmed = [roster.shifts[i] for i in reply.accepted_shift_ids if roster._entry(cleaner_id, i).status == "confirmed"]
     if confirmed:
         _send(cleaner_id, draft_assignment(cleaner, confirmed), ["I agree"])
     roster.save()
     next_steps({s.id: s for s in offered}.values())
+
+
+def _tell_owner_about(cleaner, text: str, reply) -> None:
+    """One short line per reply, so the owner sees what the agent understood."""
+    taken = [label(roster.shifts[i]) for i in reply.accepted_shift_ids if roster._entry(cleaner.id, i).status == "confirmed"]
+    standby = [label(roster.shifts[i]) for i in reply.accepted_shift_ids if roster._entry(cleaner.id, i).status == "standby"]
+    line = f"💬 {cleaner.name}: \"{text}\""
+    if taken:
+        line += f"\n✅ Booked: {', '.join(taken)}"
+    if standby:
+        line += f"\n⏸ Standby (already full): {', '.join(standby)}"
+    if reply.label == "no":
+        line += "\n❌ Declined" + (", too far. Asking their travel limit." if reply.too_far else ".")
+    if reply.label in ("question", "unclear"):
+        line += f"\n❓ Needs you: {reply.question or 'unclear answer'}"
+    if reply.constraints:
+        line += f"\n🧠 Remembered: {'; '.join(reply.constraints)}"
+    notify_owner(line)
 
 
 @_locked
@@ -197,7 +222,7 @@ def on_button(cleaner_id: str, button: str) -> None:
         for e in roster.entries:
             if e.cleaner_id == cleaner_id and e.status == "confirmed" and not e.agreed_at:
                 roster.agree(cleaner_id, e.shift_id)
-        notify_owner(f"{roster._name(cleaner_id)} agreed to the assignment.")
+        notify_owner(f"✍️ {roster._name(cleaner_id)} confirmed the assignment.")
         events.log("reply", f"{roster._name(cleaner_id)} tapped \"I agree\"")
         roster.save()
 
@@ -225,7 +250,7 @@ def next_steps(shifts) -> None:
 def recruit(shifts: list[Shift]) -> str:
     """7. Draft the Facebook post for the owner; applicants answer through the bot."""
     post = draft_post(shifts)
-    notify_owner("Draft for your Facebook group (it links to our Telegram bot):\n\n" + post)
+    notify_owner("📣 Draft for your Facebook group (applicants reach me through the bot):\n\n" + post)
     events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in shifts)}")
     return post
 
@@ -244,10 +269,11 @@ def decide(shift: Shift) -> str:
         action = "facebook_post"  # the model may not ask people who do not exist
     if action not in ("ask_more", "facebook_post"):
         action = "tell_owner"
-    notify_owner(f"{shift.id} is still open ({confirmed}/{shift.headcount}). Decision: {action}. {choice.get('reason', '')}")
+    words = {"ask_more": "asking more people", "facebook_post": "nobody left, drafting a Facebook post", "tell_owner": "needs you"}
+    notify_owner(f"🟠 {label(shift)} still needs {shift.headcount - confirmed}: {words[action]}.")
     events.log("decision", f"{shift.id} open ({confirmed}/{shift.headcount}) → {action.replace('_', ' ')}: {choice.get('reason', '')}")
     if action == "tell_owner":
-        notify_owner(f"I could not fill {shift.id}; please decide how to handle it.")
+        notify_owner(f"⚠️ I can't fill {label(shift)} sensibly. How do you want to handle it?")
     return action
 
 
@@ -256,14 +282,14 @@ def decide(shift: Shift) -> str:
 def on_cancel(cleaner_id: str, shift_id: str) -> None:
     roster.cancel(cleaner_id, shift_id)
     shift = roster.shifts[shift_id]
-    notify_owner(f"{roster._name(cleaner_id)} cancelled {shift_id}. Re-staffing it now.")
+    notify_owner(f"⚠️ {roster._name(cleaner_id)} cancelled {label(shift)}. Re-staffing it now.")
     events.log("cancel", f"{roster._name(cleaner_id)} cancelled {shift_id}")
     waiting = roster.standby(shift_id)
     if waiting:
         roster.confirm(waiting[0], shift_id)
         cleaner = roster.cleaners[waiting[0]]
         _send(cleaner.id, "Good news: a place opened up and it's yours.\n\n" + draft_assignment(cleaner, [shift]), ["I agree"])
-        notify_owner(f"{cleaner.name} moved from standby onto {shift_id}.")
+        notify_owner(f"✅ {cleaner.name} moved in from standby for {label(shift)}.")
         events.log("decision", f"{cleaner.name} moved from standby onto {shift_id}")
     else:
         staff([shift])
@@ -274,6 +300,6 @@ def on_cancel(cleaner_id: str, shift_id: str) -> None:
 def client_reply(request_id: str) -> str:
     req_shifts = [s for s in roster.shifts.values() if s.request_id == request_id]
     draft = draft_client_reply(requests[request_id], req_shifts, questions.get(request_id, []))
-    notify_owner("Draft reply to the client (review and send it yourself):\n\n" + draft)
+    notify_owner("✉️ Draft reply to the client. Review it and send it yourself:\n\n" + draft)
     events.log("owner", f"Client reply for {request_id} drafted for the owner")
     return draft
