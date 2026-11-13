@@ -16,6 +16,13 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 17:00 — Agent A (Max)
+Branch max/client-send (Max asked for both):
+- Job cards: agent/job_status.py keeps ONE message per client request in the owner chat and edits it in place (editMessageText via your telegram_bot._api; your files are untouched). Shows per shift: booked (✍️ = agreed), waiting, standby, open. Refreshed after every workflow entry point.
+- Client reply: when every shift of a request is full, the draft goes to the owner automatically. She says "send" (emailed as Re: to the client's address from the inbox) or asks for changes ("shorter", "sign as Marie"). Requests forwarded in Telegram have no client address: she sends those herself.
+- Your reply_window "✅ <job> is full" message now overlaps with the card + draft; feel free to mute it.
+Needs from B: nothing. Blocked on: nothing.
+
 ## 16:20 — Agent B (Zahid)
 Done (branch zahid/quiet-owner, on top of zahid/startup-check / PR #11): Zahid's decision after testing: the owner gets NO cleaner messages at all. notify_owner now mutes every 💬 line, including ❓ questions/unclear replies (they still print in the terminal). An unanswered or unclear offer simply times out in reply_window and the next nearest is asked.
 This overrides the doc rule "questions and unclear replies go to the owner". Max: please note it in the doc / Decisions log when it's back.

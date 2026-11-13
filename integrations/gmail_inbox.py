@@ -90,6 +90,8 @@ def fetch_new(taken: set[str] = frozenset(), on_signed: Callable[[str], None] | 
             continue
         subject = str(make_header(decode_header(msg.get("Subject", ""))))
         client = _client_id(msg, set(taken) | {r.id for r in requests})
+        from agent import workflow
+        workflow.client_contacts[client] = (parseaddr(msg.get("From", ""))[1], subject)
         requests.append(Request(id=client, raw_text=f"Subject: {subject}\n\n{_text(msg)}",
                                 received_at=datetime.now().isoformat(timespec="seconds")))
     box.logout()

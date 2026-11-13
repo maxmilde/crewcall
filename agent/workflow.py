@@ -7,7 +7,7 @@ client goes through the owner.
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from agent import events, roster
+from agent import events, job_status, roster
 from agent.client_reply import draft_client_reply
 from agent.describe import describe, label, where
 from agent.documents import draft_assignment
@@ -28,6 +28,8 @@ except ImportError:
     from agent.stand_ins import shortlist, travel_minutes
 
 requests: dict[str, Request] = {}
+client_contacts: dict[str, tuple[str, str]] = {}  # request id -> (client email, original subject), from the inbox
+drafts: dict[str, str] = {}                       # request id -> client reply waiting for the owner's "send"
 questions: dict[str, list[OpenQuestion]] = {}  # request id -> open points for the client
 minutes: dict[str, dict[str, int]] = {}    # shift id -> cleaner id -> travel minutes
 waiting_for_travel: set[str] = set()       # cleaners we asked "how far would you travel?"
@@ -37,7 +39,9 @@ lock = threading.RLock()                   # replies arrive from several threads
 def _locked(fn):
     def wrapper(*args, **kwargs):
         with lock:
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            job_status.refresh()  # the owner's job cards follow every change
+            return result
     wrapper.__name__, wrapper.__doc__ = fn.__name__, fn.__doc__
     return wrapper
 
@@ -232,6 +236,7 @@ def on_reply(cleaner_id: str, text: str) -> None:
         _send(cleaner_id, draft_assignment(cleaner, confirmed), ["I agree"])
     roster.save()
     next_steps({s.id: s for s in offered}.values())
+    _check_complete(reply.accepted_shift_ids)
 
 
 def _tell_owner_about(cleaner, text: str, reply) -> None:
@@ -313,6 +318,7 @@ def next_steps(shifts) -> None:
         staff(more)  # one message per worker, even when several shifts reopen
     if post:
         recruit(post)
+    job_status.refresh()
 
 
 def recruit(shifts: list[Shift]) -> str:
@@ -359,6 +365,7 @@ def on_cancel(cleaner_id: str, shift_id: str) -> None:
         cleaner = roster.cleaners[waiting[0]]
         _send(cleaner.id, "Good news: a place opened up and it's yours.\n\n" + draft_assignment(cleaner, [shift]), ["I agree"])
         notify_owner(f"✅ {cleaner.name} moved in from standby for {label(shift)}.")
+        _check_complete([shift_id])
         events.log("decision", f"{cleaner.name} moved from standby onto {shift_id}")
     else:
         staff([shift])
@@ -366,9 +373,51 @@ def on_cancel(cleaner_id: str, shift_id: str) -> None:
 
 
 # 9. Client reply: drafted for the owner, never sent by the agent
-def client_reply(request_id: str) -> str:
+def client_reply(request_id: str, complete: bool = False) -> str:
+    """Draft the reply to the client and show it to the owner; it is sent only on her "send"."""
     req_shifts = [s for s in roster.shifts.values() if s.request_id == request_id]
     draft = draft_client_reply(requests[request_id], req_shifts, questions.get(request_id, []))
-    notify_owner("✉️ Draft reply to the client. Review it and send it yourself:\n\n" + draft)
+    drafts[request_id] = draft
+    who = client_names.get(request_id, request_id)
+    head = f"✅ Everyone's booked for {who}. " if complete else ""
+    how = ("Reply \"send\" to email it, or tell me what to change." if request_id in client_contacts
+           else "This request came through Telegram, so I don't have the client's email: copy it and send it yourself.")
+    notify_owner(f"{head}✉️ Draft reply to {who}:\n\n{draft}\n\n{how}")
     events.log("owner", f"Client reply for {request_id} drafted for the owner")
     return draft
+
+
+REVISE_PROMPT = """Rewrite this email draft following the owner's instruction. Keep everything else the same.
+Return {"draft": "Subject: ...\\n\\n<body>"}."""
+
+
+def revise_reply(request_id: str, instruction: str) -> str:
+    try:
+        new = chat_json(REVISE_PROMPT, f"Draft:\n{drafts[request_id]}\n\nInstruction: {instruction}", max_tokens=2000).get("draft")
+    except ValueError:
+        new = None
+    if isinstance(new, str) and new.strip():
+        drafts[request_id] = new.strip()
+    return drafts[request_id]
+
+
+def send_reply(request_id: str) -> str:
+    """The owner said "send": email the approved draft to the client from the work inbox."""
+    from integrations.email_sender import send_email
+    to, subject = client_contacts.get(request_id, ("", ""))
+    if not to:
+        return "I don't have this client's email address, so please send it yourself."
+    draft = drafts.pop(request_id)
+    lines = draft.split("\n")
+    body = "\n".join(lines[2:]) if lines and lines[0].lower().startswith("subject:") else draft
+    send_email(to, subject if subject.lower().startswith("re:") else f"Re: {subject}", body.strip())
+    events.log("owner", f"Client reply for {request_id} sent to {to}")
+    return f"📨 Sent to {to}."
+
+
+def _check_complete(shift_ids) -> None:
+    """When every shift of a request is full, draft the client reply once."""
+    for request_id in {roster.shifts[i].request_id for i in shift_ids if i in roster.shifts}:
+        mine = [s for s in roster.shifts.values() if s.request_id == request_id]
+        if request_id in requests and request_id not in drafts and mine and all(roster.is_full(s.id) for s in mine):
+            client_reply(request_id, complete=True)
