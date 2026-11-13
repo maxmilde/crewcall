@@ -16,7 +16,17 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
-## 17:00 — Agent B (Zahid)
+## 15:51 — Agent B (Zahid)
+Done (branch zahid/owner-menu, built on zahid/apify-travel). Zahid's wishes, built in my files only:
+- Owner menu (buttons + commands): 📋 Who's booked (/booked, /status), 📧 Last email (/email: jobs read from the newest email + open questions, only when she asks), ✉️ Client reply (/reply -> workflow.client_reply), 📣 Facebook post (/post -> workflow.recruit for open jobs), ➕ Add cleaner (/add: tells her the "add Name, Area" format). Tapping a button while ask_owner waits is not taken as the answer.
+- integrations/reply_window.py: offers unanswered after REPLY_WAIT_MINUTES (default 30, new in .env.example; use 1 for the demo) are marked "declined", then workflow.next_steps runs (ask next nearest / Facebook / tell owner). Needed because staff() counts silent people as pending. Also sends one "✅ <job> is full: names" when a job fills.
+- notify_owner mutes per-step chatter: 📤 asked, 🧠 saved, ✍️ agreed, and 💬 reply lines without ❓. Kept: ❓ needs you, ⚠️, 🟠, ⏭, drafts, new request + questions. Muted lines still print in the terminal.
+Max: this filters by your emoji prefixes, so if you change them, tell me (or move the muting/timer into workflow and I'll drop mine).
+Still yours (Zahid asked, needs a decision on missing headcount first): start staffing without the "Shall I start?" question and without pushing the 📩 summary (she has 📧 Last email now).
+Fixed: my earlier HANDOFF headings had guessed times; they now show the real commit times.
+Blocked on: nothing.
+
+## 15:28 — Agent B (Zahid)
 Done (branch zahid/apify-travel, built on zahid/telegram-bot): Build order step 2.
 - integrations/apify_travel.py: travel_minutes(cleaners, address, arrive_by) -> {cleaner_id: minutes}. One matrix run of rastriq/google-maps-directions-traffic, transit, arrive_by = shift start, "<area>, <CITY>" as origins. Cached per origin/site/time in data/cache/travel.json; only new pairs hit Apify. Empty address -> {}; no route -> cleaner left out. If Apify fails: prints a note and uses the stand-in estimates.
 - agent/matching.py: shortlist(shift, cleaners, minutes) nearest first, no cut-off.
@@ -26,7 +36,7 @@ Done (branch zahid/apify-travel, built on zahid/telegram-bot): Build order step 
 Next: send_email (integrations/email.py).
 Blocked on: nothing.
 
-## 16:45 — Agent B (Zahid)
+## 15:26 — Agent B (Zahid)
 Done (branch zahid/telegram-bot, now includes max/inbox merged in, HANDOFF conflict resolved):
 - run_bot.main() starts gmail_inbox.watch(workflow.new_requests, lambda: set(workflow.requests)); off until GMAIL_* are in .env.
 - A forwarded/long owner message now goes to workflow.new_requests too (same entry point as the inbox; id request<N>). Shorter pasted requests still reach owner_chat's new_request action.
@@ -35,7 +45,7 @@ Ready to merge: zahid/telegram-bot contains max/inbox, so merging it alone is en
 Next (mine): Apify travel times (integrations/apify_travel.py) + agent/matching.py shortlist, then send_email.
 Blocked on: nothing.
 
-## 16:30 — Agent B (Zahid)
+## 15:23 — Agent B (Zahid)
 Done (branch zahid/telegram-bot): owner command /status (also "status" / "summary"), in integrations/run_bot.py. Per job: "Thu event ~12–17: 1/2 (Anna Svobodová)". No model call. Shown in the bot's command menu.
 Needs from A (agent/workflow.py), Zahid's wish: the owner shouldn't get every cleaner message, only the result.
 - Drop: the per-reply line (💬 name: "text" / ✅ Booked / ❌ Declined), 📤 Asked N people, 🧠 Saved travel limit, ✍️ confirmed the assignment.
@@ -43,12 +53,12 @@ Needs from A (agent/workflow.py), Zahid's wish: the owner shouldn't get every cl
 - Keep (they need her action, and the doc says questions/unclear go to the owner): ❓ Needs you, ⚠️ cancellations / can't fill, 🟠 still open + next move, drafts (Facebook post, client reply), new request and headcount/approval questions.
 Blocked on: nothing.
 
-## 16:15 — Agent B (Zahid)
+## 15:14 — Agent B (Zahid)
 Decision from Zahid (human): feature freeze moves from 16:45 to 17:45. Max, please confirm and update the doc's Build order / timeline.
 Also proposed by Zahid, not yet agreed: client emails arrive in a work mailbox and reach the agent automatically (IMAP watcher in integrations/email.py). Offers would still go out only after the owner's headcount answer and one "yes" on Telegram, as the doc requires. Max: OK with this for the demo story?
 Blocked on: nothing.
 
-## 16:05 — Agent B (Zahid)
+## 15:05 — Agent B (Zahid)
 Done (branch zahid/telegram-bot):
 - integrations/telegram_bot.py now has all four names workflow imports: send(chat_id, text), send_buttons(chat_id, text, buttons), notify_owner(text), ask_owner(question) -> str. So workflow/applicants use the real bot, not the stand-ins.
 - ask_owner sends the question to OWNER_CHAT_ID and returns her next message. Handlers run in their own threads, so polling continues while a handler waits for her (workflow.start's questions work from the bot). Without OWNER_CHAT_ID: terminal input, like the stand-in.
@@ -62,7 +72,7 @@ Needs from A (agent/owner_chat.py, add_worker):
 Note: integrations/email.py (send_email) is not built yet, so applicants still uses the stand-in.
 Blocked on: nothing.
 
-## 15:40 — Agent B (Zahid)
+## 15:01 — Agent B (Zahid)
 Done (branch zahid/telegram-bot): integrations/telegram_bot.py, Build order step 1. Tested live: deep link linked a phone, it got a message, its reply printed.
 - send(chat_id, text): Telegram for numeric chat ids, terminal print otherwise.
 - listen(on_reply): long polling; calls on_reply(cleaner_id, text) for known chats. Survives network timeouts and errors in the callback.
