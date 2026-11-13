@@ -20,3 +20,4 @@ venv/
 
 # Runtime state
 data/state*.json
+data/events.jsonl

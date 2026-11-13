@@ -1,7 +1,7 @@
 """Who is on which shift. State lives in memory and is saved to data/state.json."""
 import json
 from dataclasses import asdict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from agent.describe import describe
@@ -108,6 +108,40 @@ def confirm(cleaner_id: str, shift_id: str) -> None:
         entry.status = "confirmed"
 
 
+def _dates(shift: Shift) -> set[str] | str:
+    """Explicit dates, or "daily" / "weekdays" for recurring work with no fixed date."""
+    days = {shift.date} if shift.date else set(shift.date_options)
+    if shift.recurrence != "none" and not days:
+        return shift.recurrence
+    return days
+
+
+def overlaps(a: Shift, b: Shift) -> bool:
+    """True when both shifts could fall on the same day at the same time. Unknown hours never clash."""
+    if a.id == b.id or None in (a.start, a.end, b.start, b.end):
+        return False
+    if not (a.start < b.end and b.start < a.end):
+        return False
+    da, db = _dates(a), _dates(b)
+    if isinstance(da, str) or isinstance(db, str):
+        explicit = db if isinstance(da, str) else da
+        rule = da if isinstance(da, str) else db
+        if isinstance(explicit, str):
+            return True
+        return rule == "daily" or any(date.fromisoformat(d).weekday() < 5 for d in explicit)
+    return bool(da & db)
+
+
+def clash(cleaner_id: str, shift: Shift) -> Shift | None:
+    """Another shift this cleaner is confirmed or asked for that overlaps with this one."""
+    for e in entries:
+        if e.cleaner_id == cleaner_id and e.status in ("asked", "confirmed", "standby") and e.shift_id != shift.id:
+            other = shifts.get(e.shift_id)
+            if other and overlaps(shift, other):
+                return other
+    return None
+
+
 def asked_before(shift_id: str) -> set[str]:
     """Cleaners already offered this shift, so a re-staffing round skips them."""
     return {e.cleaner_id for e in entries if e.shift_id == shift_id}
@@ -152,3 +186,15 @@ def load() -> None:
     add_shifts([Shift(**s) for s in data["shifts"]])
     add_cleaners([Cleaner(**c) for c in data["cleaners"]])
     entries.extend(RosterEntry(**e) for e in data["entries"])
+
+
+def load_cleaners_csv(path: str = "data/cleaners.csv") -> None:
+    """Columns: id,name,home_area,language,telegram_chat_id,simulated,email,notes."""
+    import csv
+    with open(path, newline="", encoding="utf-8") as f:
+        add_cleaners([
+            Cleaner(id=row["id"], name=row["name"], home_area=row["home_area"], language=row["language"] or "en",
+                    telegram_chat_id=row["telegram_chat_id"], simulated=row["simulated"].lower() == "true",
+                    email=row["email"], notes=row["notes"])
+            for row in csv.DictReader(f)
+        ])

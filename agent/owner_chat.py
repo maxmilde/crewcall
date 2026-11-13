@@ -49,7 +49,10 @@ def handle(text: str) -> str:
         return "That person isn't confirmed on that shift."
 
     if action == "client_reply":
-        workflow.client_reply()
+        request_id = shift.request_id if shift else next(iter(workflow.requests), None)
+        if not request_id:
+            return "There is no client request yet."
+        workflow.client_reply(request_id)
         return "Draft sent to you above. Nothing goes to the client until you send it."
 
     return str(data.get("answer") or "I can tell you who is on each shift, change a headcount, remove someone, or draft the client reply.")

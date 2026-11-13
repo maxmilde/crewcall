@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrewCall board</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36; --text: #e8eaf0; --muted: #8b93a7;
+    --green: #3ecf8e; --amber: #f5b14c; --red: #ff6b6b; --blue: #6aa8ff; --grey: #4a5163;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 -apple-system, "Segoe UI", Inter, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 24px; padding: 18px 28px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 26px; letter-spacing: .5px; }
+  .counters { display: flex; gap: 28px; margin-left: auto; }
+  .counter b { display: block; font-size: 30px; font-variant-numeric: tabular-nums; }
+  .counter span { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .6px; }
+  .counter.hand b { color: var(--muted); text-decoration: line-through; }
+  main { display: grid; grid-template-columns: 1fr 400px; gap: 0; height: calc(100vh - 86px); }
+  #clients { display: flex; gap: 18px; padding: 20px 24px; overflow: auto; align-items: flex-start; }
+  .client { flex: 1 1 0; min-width: 260px; }
+  .client h2 { margin: 0 0 10px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .shift { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; transition: border-color .4s; }
+  .shift.full { border-left-color: var(--green); }
+  .shift .when { font-weight: 600; }
+  .shift .task { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
+  .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+  .slot { font-size: 13px; padding: 3px 9px; border-radius: 999px; background: var(--line); color: var(--muted); }
+  .slot.ok { background: rgba(62,207,142,.18); color: var(--green); }
+  .slot.wait { background: rgba(106,168,255,.14); color: var(--blue); }
+  .slot.standby { background: rgba(245,177,76,.16); color: var(--amber); }
+  .slot.open { border: 1px dashed var(--red); background: none; color: var(--red); }
+  aside { border-left: 1px solid var(--line); padding: 20px 22px; overflow: auto; }
+  aside h2 { margin: 0 0 12px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .event { padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; animation: in .5s ease; }
+  .event time { color: var(--muted); font-size: 12px; margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .event .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; margin-right: 6px; }
+  .tag.decision, .tag.recruit { color: var(--amber); } .tag.skip { color: var(--red); } .tag.reply { color: var(--green); }
+  .tag.offer { color: var(--blue); } .tag.owner, .tag.request, .tag.cancel { color: var(--text); }
+  .empty { color: var(--muted); padding: 40px; }
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>CrewCall</h1>
+  <div class="counters" id="counters"></div>
+</header>
+<main>
+  <section id="clients"><div class="empty">Waiting for requests…</div></section>
+  <aside><h2>What the agent is doing</h2><div id="events"></div></aside>
+</main>
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let last = "";
+function slots(s) {
+  const out = s.confirmed.map(p => `<span class="slot ok">✓ ${esc(p.name)}${p.agreed ? " · agreed" : ""}</span>`);
+  const open = Math.max((s.need ?? 1) - s.confirmed.length, 0);
+  for (let i = 0; i < open; i++) out.push(`<span class="slot open">open</span>`);
+  s.waiting.forEach(p => out.push(`<span class="slot wait">… ${esc(p.name)}</span>`));
+  s.standby.forEach(p => out.push(`<span class="slot standby">standby ${esc(p.name)}</span>`));
+  return out.join("");
+}
+async function tick() {
+  try {
+    const d = await (await fetch("/data")).json();
+    const key = JSON.stringify(d);
+    if (key === last) return;
+    last = key;
+    const c = d.counters;
+    document.getElementById("counters").innerHTML = [
+      [c.shifts, "shifts"], [`${c.filled}/${c.needed}`, "places filled"], [c.offers, "offers sent"],
+      [c.replies, "replies understood"], [c.owner, "owner decisions"],
+    ].map(([v, l]) => `<div class="counter"><b>${v}</b><span>${l}</span></div>`).join("")
+      + `<div class="counter hand"><b>~${c.calls}</b><span>calls by hand</span></div>`;
+    const clients = Object.entries(d.clients);
+    document.getElementById("clients").innerHTML = clients.length ? clients.map(([id, shifts]) => `
+      <div class="client"><h2>${esc(id)}</h2>${shifts.map(s => `
+        <div class="shift ${s.confirmed.length >= (s.need ?? 1) ? "full" : ""}">
+          <div class="when">${esc(s.when)}</div>
+          <div class="task">${esc(s.task)} · ${esc(s.need ?? "?")} ${s.need === 1 ? "person" : "people"}</div>
+          <div class="slots">${slots(s)}</div>
+        </div>`).join("")}</div>`).join("") : `<div class="empty">Waiting for requests…</div>`;
+    document.getElementById("events").innerHTML = d.events.map(e =>
+      `<div class="event"><time>${esc(e.at)}</time><span class="tag ${esc(e.kind)}">${esc(e.kind)}</span>${esc(e.text)}</div>`).join("");
+  } catch (e) { /* agent not running yet */ }
+}
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

@@ -16,6 +16,29 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 14:25 — Agent A (Max): answers to Zahid + new work
+Python: also 3.14 locally, writing 3.11-compatible code.
+Doc: you can't read it, so changes since 14:00 are summarised here. Main ones: Facebook comment scraping is dropped; demo script fixed (three emails at once, live board on the projector, clash check); contracts are prepared, sent by email for proper signing and tracked (sent -> signed), not signed by a Telegram tap.
+Your questions:
+1. fetch_comments and rank are gone. Facebook applicants message the bot instead; agent/applicants.py screens them (route unknown chats / start=apply there). Build order 3/5 are outdated in the doc.
+2. Rules like "never weekends": my workflow filters them (one model call per shift). Your shortlist only sorts by travel time.
+3. /start matching: suggestion: deep link per cleaner, t.me/<bot>?start=<cleaner id> (e.g. start=c01). /start c01 writes that chat id into the cleaner (roster.cleaners["c01"].telegram_chat_id, then roster.save()). /start apply or no id -> applicant. Your call.
+4. data/cleaners.csv: created (12 people: c01-c03 are our real phones, rest simulated). Load with roster.load_cleaners_csv(). Chat ids get filled by /start.
+New (branch max/board):
+- workflow.start(requests: list[Request]) now takes several emails at once (parsed in parallel); client_reply(request_id).
+- roster.overlaps / roster.clash: nobody is offered overlapping shifts across clients.
+- agent/events.py: log(kind, text) -> data/events.jsonl, for the board.
+- agent/board.py + board.html: live board, .venv/bin/python -m agent.board -> http://localhost:8000
+- agent/simulate.py: the demo story with three emails, no Telegram needed (--fast to skip pauses).
+- Cleaner.contract_status ("", "sent", "signed").
+Schema: please review shared/schemas.py on main once this is merged; it has everything (max_travel_minutes, standby, too_far, contract_status).
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
+Done (branch max/evals): agent/evals.py, 58 test cases over every AI step (classify, intake, compose, post, decide, owner chat, travel, applicants). Run: .venv/bin/python -m agent.evals [area]. 58/58 pass, ~15 s. Prompt fixes: conditional yeses and "wrong number" go to the owner; quote-only emails still produce a question for the owner.
+Needs from B: nothing. If you add AI steps (rank), feel free to add a test area in your own file.
+Blocked on: nothing.
+
 ## 13 Nov — Agent A (Max)
 Done (branch max/owner-chat):
 - agent/owner_chat.py: handle(text) -> str. Owner's plain-language messages: "who's on Friday?", "add one more person Thursday", "take Anna off Friday", "client reply". Model picks one allowed action; code checks it before anything changes.

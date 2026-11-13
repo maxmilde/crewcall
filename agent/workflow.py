@@ -6,7 +6,7 @@ client goes through the owner.
 """
 from concurrent.futures import ThreadPoolExecutor
 
-from agent import roster
+from agent import events, roster
 from agent.client_reply import draft_client_reply
 from agent.describe import describe
 from agent.documents import draft_assignment
@@ -26,27 +26,32 @@ try:
 except ImportError:
     from agent.stand_ins import shortlist, travel_minutes
 
-request: Request | None = None
-questions: list[OpenQuestion] = []
+requests: dict[str, Request] = {}
+questions: dict[str, list[OpenQuestion]] = {}  # request id -> open points for the client
 minutes: dict[str, dict[str, int]] = {}    # shift id -> cleaner id -> travel minutes
 waiting_for_travel: set[str] = set()       # cleaners we asked "how far would you travel?"
 
 
-# 1. Email in: parse, owner approves and sets headcount
-def start(new_request: Request) -> list[Shift]:
-    global request, questions
-    request = new_request
-    shifts, questions = parse_request(request)
-    roster.add_shifts(shifts)
-    notify_owner("New request. I read these shifts:\n" + "\n".join(f"- {describe(s, True)}" for s in shifts))
+# 1. Emails in: read them all at once, owner sets headcounts and approves
+def start(new_requests: list[Request]) -> list[Shift]:
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        parsed = list(pool.map(parse_request, new_requests))
+    shifts = []
+    for req, (req_shifts, req_questions) in zip(new_requests, parsed):
+        requests[req.id], questions[req.id] = req, req_questions
+        roster.add_shifts(req_shifts)
+        shifts += req_shifts
+        events.log("request", f"Email from {req.id}: {len(req_shifts)} shifts read")
+        notify_owner(f"Request from {req.id}:\n" + "\n".join(f"- {describe(s, True)}" for s in req_shifts))
     for s in shifts:
         if s.headcount is None:
             answer = ask_owner(f"How many people for {s.id} ({s.task_summary})?")
             s.headcount = int(answer) if answer.isdigit() and int(answer) > 0 else 1
-    if questions:
-        notify_owner("Open points for the client:\n" + "\n".join(f"- {q.text}" for q in questions))
+            events.log("owner", f"Owner set {s.id} to {s.headcount} people")
+    roster.save()
     if ask_owner("Start contacting workers? (yes/no)").lower() not in ("y", "yes"):
         return []
+    events.log("owner", "Owner approved: contacting workers")
     return shifts
 
 
@@ -55,18 +60,46 @@ def _arrive_by(shift: Shift) -> str:
     return f"{day}T{shift.start or '09:00'}"
 
 
+RULES_PROMPT = """A shift is offered. Some workers have personal rules about when or where they work.
+Check each rule against the shift's weekday, start and end time and place.
+Return {"excluded": ["worker id", ...]}: the ids whose rule is broken by this shift
+(e.g. "nothing after 18:00" is broken by a shift ending at 19:00; "never weekends" by a Saturday).
+Keep anyone whose rule is not broken or cannot be judged."""
+_excluded: dict[tuple, bool] = {}  # (shift id, worker id, rules) -> excluded
+
+
+def _rules_exclude(shift: Shift, cleaner_ids: list[str]) -> set[str]:
+    """Learned rules like "never weekends": one model call per shift for everyone with rules."""
+    todo = [c for c in cleaner_ids if roster.cleaners[c].constraints
+            and (shift.id, c, tuple(roster.cleaners[c].constraints)) not in _excluded]
+    if todo:
+        lines = "\n".join(f"- {c}: {'; '.join(roster.cleaners[c].constraints)}" for c in todo)
+        try:
+            out = set(chat_json(RULES_PROMPT, f"Shift: {describe(shift)}\nWorkers:\n{lines}", max_tokens=1000).get("excluded") or [])
+        except ValueError:
+            out = set()
+        for c in todo:
+            _excluded[(shift.id, c, tuple(roster.cleaners[c].constraints))] = c in out
+            if c in out:
+                events.log("skip", f"{roster._name(c)} skipped for {shift.id}: {'; '.join(roster.cleaners[c].constraints)}")
+    return {c for c in cleaner_ids if roster.cleaners[c].constraints
+            and _excluded.get((shift.id, c, tuple(roster.cleaners[c].constraints)))}
+
+
 def _candidates(shift: Shift) -> list[str]:
-    """2. Nearest first, skipping people already asked or out of their travel range."""
+    """2. Nearest first, skipping people already asked, out of their travel range, or ruled out by their rules."""
     pool = list(roster.cleaners.values())
     if shift.id not in minutes:
         minutes[shift.id] = travel_minutes(pool, shift.address or shift.site_name or "", _arrive_by(shift))
     times = minutes[shift.id]
     asked = roster.asked_before(shift.id)
     ordered = shortlist(shift, pool, times)
-    return [
+    ids = [
         c.id for c in ordered
         if c.id not in asked and (c.max_travel_minutes is None or times.get(c.id, 0) <= c.max_travel_minutes)
     ]
+    ruled_out = _rules_exclude(shift, ids)
+    return [c for c in ids if c not in ruled_out]
 
 
 # 2–3. Ask 2N nearest per shift; one message per worker covering all their shifts
@@ -74,8 +107,15 @@ def staff(shifts: list[Shift]) -> None:
     per_cleaner: dict[str, list[Shift]] = {}
     for s in shifts:
         still_needed = 2 * (s.headcount or 1) - len(roster.pending(s.id)) - len(roster._confirmed(s.id))
-        for cid in _candidates(s)[: max(still_needed, 0)]:
+        for cid in _candidates(s):
+            if still_needed <= 0:
+                break
+            other = roster.clash(cid, s) or next((p for p in per_cleaner.get(cid, []) if roster.overlaps(p, s)), None)
+            if other:  # never double-book across clients
+                events.log("skip", f"{roster._name(cid)} skipped for {s.id}: already on {other.id} at that time")
+                continue
             per_cleaner.setdefault(cid, []).append(s)
+            still_needed -= 1
     if not per_cleaner:
         return
 
@@ -85,6 +125,7 @@ def staff(shifts: list[Shift]) -> None:
         text = compose(cleaner, per_cleaner[cid]) + f"\n(About {nearest} min from you by public transport.)"
         send(cleaner.telegram_chat_id or cid, text)
         roster.mark_asked(cid, [s.id for s in per_cleaner[cid]])
+        events.log("offer", f"Offer to {cleaner.name} ({nearest} min away): {', '.join(s.id for s in per_cleaner[cid])}")
 
     with ThreadPoolExecutor(max_workers=8) as pool:  # offers are written in parallel
         list(pool.map(offer, per_cleaner))
@@ -100,6 +141,7 @@ def on_reply(cleaner_id: str, text: str) -> None:
         cleaner.max_travel_minutes, area = learn_travel(text)
         cleaner.home_area = area or cleaner.home_area
         notify_owner(f"Saved for {cleaner.name}: max {cleaner.max_travel_minutes or '?'} min, lives in {cleaner.home_area}")
+        events.log("reply", f"Learned: {cleaner.name} travels max {cleaner.max_travel_minutes or '?'} min, lives in {cleaner.home_area}")
         roster.save()
         return
     offered = [roster.shifts[e.shift_id] for e in roster.entries if e.cleaner_id == cleaner_id and e.status == "asked"]
@@ -107,8 +149,11 @@ def on_reply(cleaner_id: str, text: str) -> None:
         notify_owner(f"{cleaner.name} wrote: {text}")
         return
     reply = classify(text, offered, cleaner_id)
+    events.log("reply", f"{cleaner.name}: \"{text}\" → {reply.label}" + (f" ({', '.join(reply.accepted_shift_ids)})" if reply.accepted_shift_ids else ""))
     for note in roster.apply(reply):
         print(f"     roster: {note}")
+        if note.startswith("Remembered") or "standby" in note:
+            events.log("reply", note)
     if reply.too_far:
         waiting_for_travel.add(cleaner_id)
         send(cleaner.telegram_chat_id or cleaner_id,
@@ -128,6 +173,7 @@ def on_button(cleaner_id: str, button: str) -> None:
             if e.cleaner_id == cleaner_id and e.status == "confirmed" and not e.agreed_at:
                 roster.agree(cleaner_id, e.shift_id)
         notify_owner(f"{roster._name(cleaner_id)} agreed to the assignment.")
+        events.log("reply", f"{roster._name(cleaner_id)} tapped \"I agree\"")
         roster.save()
 
 
@@ -149,6 +195,7 @@ def next_steps(shifts) -> None:
         staff(more)  # one message per worker, even when several shifts reopen
     if post:
         notify_owner("Draft for your Facebook group (it links to our Telegram bot):\n\n" + draft_post(post))
+        events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in post)}")
 
 
 def decide(shift: Shift) -> str:
@@ -166,6 +213,7 @@ def decide(shift: Shift) -> str:
     if action not in ("ask_more", "facebook_post"):
         action = "tell_owner"
     notify_owner(f"{shift.id} is still open ({confirmed}/{shift.headcount}). Decision: {action}. {choice.get('reason', '')}")
+    events.log("decision", f"{shift.id} open ({confirmed}/{shift.headcount}) → {action.replace('_', ' ')}: {choice.get('reason', '')}")
     if action == "tell_owner":
         notify_owner(f"I could not fill {shift.id}; please decide how to handle it.")
     return action
@@ -176,6 +224,7 @@ def on_cancel(cleaner_id: str, shift_id: str) -> None:
     roster.cancel(cleaner_id, shift_id)
     shift = roster.shifts[shift_id]
     notify_owner(f"{roster._name(cleaner_id)} cancelled {shift_id}. Re-staffing it now.")
+    events.log("cancel", f"{roster._name(cleaner_id)} cancelled {shift_id}")
     waiting = roster.standby(shift_id)
     if waiting:
         roster.confirm(waiting[0], shift_id)
@@ -183,13 +232,16 @@ def on_cancel(cleaner_id: str, shift_id: str) -> None:
         send_buttons(cleaner.telegram_chat_id or cleaner.id,
                      "Good news: a place opened up and it's yours.\n\n" + draft_assignment(cleaner, [shift]), ["I agree"])
         notify_owner(f"{cleaner.name} moved from standby onto {shift_id}.")
+        events.log("decision", f"{cleaner.name} moved from standby onto {shift_id}")
     else:
         staff([shift])
     roster.save()
 
 
 # 9. Client reply: drafted for the owner, never sent by the agent
-def client_reply() -> str:
-    draft = draft_client_reply(request, list(roster.shifts.values()), questions)
+def client_reply(request_id: str) -> str:
+    req_shifts = [s for s in roster.shifts.values() if s.request_id == request_id]
+    draft = draft_client_reply(requests[request_id], req_shifts, questions.get(request_id, []))
     notify_owner("Draft reply to the client (review and send it yourself):\n\n" + draft)
+    events.log("owner", f"Client reply for {request_id} drafted for the owner")
     return draft
