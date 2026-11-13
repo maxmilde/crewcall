@@ -74,10 +74,13 @@ def parse_request(request: Request) -> tuple[list[Shift], list[OpenQuestion]]:
         for i, raw in enumerate(data.get("shifts") or [], start=1)
         if isinstance(raw, dict)
     ]
+    has_options = any(s.date_options for s in shifts)
     questions = [
         OpenQuestion(request_id=request.id, text=q.strip())
         for q in data.get("questions") or []
         if isinstance(q, str) and q.strip()
+        and not re.search(r"how many (people|cleaners|staff)", q, re.I)  # the owner decides headcount
+        and not (has_options and re.search(r"which (date|day)|prefer|choose", q, re.I))  # the owner picks
     ]
     return shifts, questions
 
