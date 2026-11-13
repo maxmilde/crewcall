@@ -63,6 +63,8 @@ def handle(text: str) -> str:
 
     new = data.get("new_worker") or {}
     if action == "add_worker" and isinstance(new, dict) and isinstance(new.get("name"), str) and new["name"].strip():
+        if not (new.get("home_area") or "").strip():  # travel times need it
+            return f"Which area does {new['name'].strip()} live in? Send it again with the area, e.g. \"add {new['name'].strip()}, Žižkov\"."
         worker_id = f"c{len(roster.cleaners) + 1:02d}"
         while worker_id in roster.cleaners:
             worker_id = f"c{int(worker_id[1:]) + 1:02d}"
@@ -70,7 +72,7 @@ def handle(text: str) -> str:
                                      email=new.get("email") or "")])
         roster.save()
         link = f"https://t.me/{os.getenv('TELEGRAM_BOT_NAME', '<bot>')}?start={worker_id}"
-        return f"Added {new['name'].strip()} to your team. Forward them this link; once they tap it they get offers:\n{link}"
+        return f"Added {new['name'].strip()} ({worker_id}, {new['home_area'].strip()}). Forward this link; once they tap it they get offers:\n{link}"
 
     if action == "facebook_post" and shift:
         workflow.recruit([shift])
