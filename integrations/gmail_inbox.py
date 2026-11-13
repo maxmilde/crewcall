@@ -20,6 +20,13 @@ from shared.schemas import Request
 
 load_dotenv()
 POLL_SECONDS = 10
+SKIP_SENDERS = ("no-reply", "noreply", "do-not-reply", "mailer-daemon", "@accounts.google.com", "@google.com")
+
+
+def _automatic(msg: email.message.Message) -> bool:
+    """Notifications from Google and other robots are not client requests."""
+    sender = parseaddr(msg.get("From", ""))[1].lower()
+    return any(s in sender for s in SKIP_SENDERS) or msg.get("Auto-Submitted", "no").lower() != "no"
 
 
 def _text(msg: email.message.Message) -> str:
@@ -58,6 +65,8 @@ def fetch_new(taken: set[str] = frozenset()) -> list[Request]:
     for num in ids[0].split():
         _, data = box.fetch(num, "(RFC822)")  # fetching marks the message as read
         msg = email.message_from_bytes(data[0][1])
+        if _automatic(msg):
+            continue  # fetched, so already marked read
         subject = str(make_header(decode_header(msg.get("Subject", ""))))
         client = _client_id(msg, set(taken) | {r.id for r in requests})
         requests.append(Request(id=client, raw_text=f"Subject: {subject}\n\n{_text(msg)}",
