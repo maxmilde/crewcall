@@ -9,7 +9,7 @@ from shared.schemas import Cleaner, Request
 
 PROMPT = """You are the staffing assistant of a small business owner. She wrote you a message.
 Pick ONE action and return JSON:
-{"action": "answer" | "set_headcount" | "remove_worker" | "add_worker" | "client_reply" | "facebook_post" | "new_request" | "unknown",
+{"action": "answer" | "set_headcount" | "remove_worker" | "add_worker" | "client_reply" | "send_reply" | "edit_reply" | "facebook_post" | "new_request" | "unknown",
  "shift_id": "id from the list" or null,
  "headcount": integer or null,
  "worker": "worker name exactly as in the roster" or null,
@@ -22,6 +22,8 @@ Pick ONE action and return JSON:
 - add_worker: she gives details of a new person for her team; fill new_worker.
 - new_request: she forwards or pastes a client's request for cleaning staff (an email or message from a client).
 - client_reply: she wants the draft email to the client.
+- send_reply: she approves a client draft ("send", "send it", "ok send"). shift_id may say which job.
+- edit_reply: she wants changes to a client draft ("make it shorter", "mention parking"); put her instruction in "answer".
 - facebook_post: she wants a job post for a shift (e.g. "post Friday on Facebook").
 - unknown: anything else, or anything unclear. Say briefly what you can do.
 Never invent shifts or people."""
@@ -32,7 +34,8 @@ def handle(text: str) -> str:
     shifts = "\n".join(
         f"- {describe(s, with_id=True)} | headcount {s.headcount}" for s in roster.shifts.values()
     )
-    state = f"Shifts:\n{shifts}\n\nRoster:\n{roster.summary()}\n\nOwner's message: {text}"
+    waiting = ", ".join(workflow.drafts) or "none"
+    state = f"Shifts:\n{shifts}\n\nRoster:\n{roster.summary()}\n\nClient drafts waiting for her: {waiting}\n\nOwner's message: {text}"
     try:
         data = chat_json(PROMPT, state, max_tokens=2000)
     except ValueError:
@@ -77,6 +80,16 @@ def handle(text: str) -> str:
     if action == "facebook_post" and shift:
         workflow.recruit([shift])
         return "Draft is above: post it in your group. Replies come to me through the bot."
+
+    if action in ("send_reply", "edit_reply"):
+        pending = [r for r in workflow.drafts if not shift or r == shift.request_id]
+        if not pending:
+            return "There's no client draft waiting."
+        request_id = pending[-1]
+        if action == "send_reply":
+            return workflow.send_reply(request_id)
+        draft = workflow.revise_reply(request_id, str(data.get("answer") or text))
+        return f"✉️ Updated draft:\n\n{draft}\n\nReply \"send\" to email it, or tell me what else to change."
 
     if action == "client_reply":
         request_id = shift.request_id if shift else next(iter(workflow.requests), None)
