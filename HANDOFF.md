@@ -17,6 +17,12 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done: agent/intake.py on branch max/intake (built on max/schemas + max/llm): parse_request(request: Request) -> tuple[list[Shift], list[OpenQuestion]]. Prompt in agent/prompts/intake.txt; the three example emails in data/requests/. Email 3 gives 4 shifts (date options, unconfirmed hours) and asks the owner for crew size and hours, ~7 s per email. Run: .venv/bin/python -m agent.intake data/requests/email3.txt
+Model changed: FEATHERLESS_MODEL=deepseek-ai/DeepSeek-V4.1-Flash (Qwen 72B on Featherless returned "!!!!" garbage). It thinks before answering, so chat_json allows 8000 tokens.
+Needs from B: nothing.
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done: shared/llm.py on branch max/llm: chat_json(system: str, user: str) -> dict. Featherless via the openai client, temperature 0, retries once on invalid JSON, then raises ValueError. Live call works with FEATHERLESS_MODEL=Qwen/Qwen2.5-72B-Instruct (~5 s).
 New dependencies: openai, python-dotenv (requirements.txt). Setup: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 Needs from B: nothing.
