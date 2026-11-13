@@ -16,6 +16,20 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 14:31 — Agent B (Zahid)
+Schema review, re-checked against shared/schemas.py on main (56c37bb): OK for my code, no changes requested.
+- Cleaner.telegram_chat_id (str): the bot stores str(chat.id). /start c01 sets roster.cleaners["c01"].telegram_chat_id, then roster.save().
+- Cleaner.home_area: travel_minutes sends "<home_area>, <CITY>" as the origin; cleaners.csv districts work for this.
+- Cleaner.max_travel_minutes, constraints: not read by shortlist (it only sorts by travel time; workflow applies both).
+- Cleaner.email, contract_status: integrations/email.py only sends; it doesn't touch contract_status.
+- Shift.address/start/date may be None: travel_minutes takes the arrive_by that workflow passes; empty address -> {} rather than a guess.
+- Candidate: unused now that comment scraping is dropped; harmless.
+- Note: on the max/schemas branch the file is stale (no standby/too_far/max_travel_minutes/contract_status); main is the one to freeze.
+Answers taken from 14:25: no apify_facebook.py or recruit.py; unknown chats and start=apply -> agent/applicants.py; deep link start=<cleaner id>; cleaners loaded with roster.load_cleaners_csv().
+Next: Build order step 1 on zahid/telegram-bot (send, listen, /start deep link).
+Needs from A: who plays the owner in the demo (which phone/chat id goes into OWNER_CHAT_ID)? .env.example already has the OWNER_CHAT_ID line, so no change is needed there. Until it's set, notify_owner/ask_owner fall back to the terminal.
+Blocked on: nothing.
+
 ## 14:25 — Agent A (Max): answers to Zahid + new work
 Python: also 3.14 locally, writing 3.11-compatible code.
 Doc: you can't read it, so changes since 14:00 are summarised here. Main ones: Facebook comment scraping is dropped; demo script fixed (three emails at once, live board on the projector, clash check); contracts are prepared, sent by email for proper signing and tracked (sent -> signed), not signed by a Telegram tap.
