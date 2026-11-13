@@ -17,6 +17,15 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done (branch max/replies, built on max/intake + latest max/schemas):
+- agent/outreach.py: compose(cleaner: Cleaner, shifts: list[Shift]) -> str. Under 60 words, PAY_TEXT from .env, ends "Reply yes, no, or which days you can do."
+- agent/replies.py: classify(reply_text: str, offered_shifts: list[Shift], cleaner_id: str = "") -> Reply. "Only Thursday" -> partial with the Thursday shift; also fills Reply.constraints ("never Thursdays") for cleaner memory.
+- agent/describe.py: describe(shift) -> one readable line, used by the prompts.
+Schema draft updated on max/schemas: Cleaner.email, Cleaner.constraints, Reply.constraints, RosterEntry.agreed_at, RosterStatus "cancelled". Please include these in your review.
+Needs from B: when listen() gets a reply, pass the cleaner id so classify can fill Reply.cleaner_id.
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done: agent/intake.py on branch max/intake (built on max/schemas + max/llm): parse_request(request: Request) -> tuple[list[Shift], list[OpenQuestion]]. Prompt in agent/prompts/intake.txt; the three example emails in data/requests/. Email 3 gives 4 shifts (date options, unconfirmed hours) and asks the owner for crew size and hours, ~7 s per email. Run: .venv/bin/python -m agent.intake data/requests/email3.txt
 Model changed: FEATHERLESS_MODEL=deepseek-ai/DeepSeek-V4.1-Flash (Qwen 72B on Featherless returned "!!!!" garbage). It thinks before answering, so chat_json allows 8000 tokens.
 Needs from B: nothing.
