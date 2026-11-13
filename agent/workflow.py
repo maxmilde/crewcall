@@ -208,7 +208,14 @@ def on_reply(cleaner_id: str, text: str) -> None:
         return
     offered = [roster.shifts[e.shift_id] for e in roster.entries if e.cleaner_id == cleaner_id and e.status == "asked"]
     if not offered:
-        notify_owner(f"💬 {cleaner.name}: \"{text}\"")
+        booked = [roster.shifts[e.shift_id] for e in roster.entries if e.cleaner_id == cleaner_id and e.status == "confirmed"]
+        dropped = _cancelled(text, booked) if booked else []
+        for shift in dropped:
+            on_cancel(cleaner_id, shift.id)
+        if dropped:
+            _send(cleaner_id, "Thanks for letting us know. I'll find someone else.")
+        else:
+            notify_owner(f"❓ {cleaner.name} wrote: \"{text}\"")  # not an answer to anything: the owner decides
         return
     reply = classify(text, offered, cleaner_id)
     events.log("reply", f"{cleaner.name}: \"{text}\" → {reply.label}" + (f" ({', '.join(reply.accepted_shift_ids)})" if reply.accepted_shift_ids else ""))
@@ -255,6 +262,21 @@ def contract_signed(cleaner_id: str) -> None:
     notify_owner(f"✍️ {cleaner.name} returned the signed contract. They're ready for their first shift.")
 
 
+CANCEL_PROMPT = """A worker who is booked on the shifts below sent a message.
+Return {"cancels": ["shift id", ...]}: the shifts they say they can no longer do
+(illness, emergency, "can't come", "have to cancel"). Empty if they don't cancel anything.
+If they cancel without saying which, and only one shift is listed, that one."""
+
+
+def _cancelled(text: str, booked: list[Shift]) -> list[Shift]:
+    listing = "\n".join(f"- [{s.id}] {describe(s)}" for s in booked)
+    try:
+        ids = chat_json(CANCEL_PROMPT, f"Booked shifts:\n{listing}\n\nMessage: {text}", max_tokens=500).get("cancels") or []
+    except ValueError:
+        return []
+    return [s for s in booked if s.id in ids]
+
+
 @_locked
 def on_button(cleaner_id: str, button: str) -> None:
     if button != "I agree":
@@ -296,7 +318,8 @@ def next_steps(shifts) -> None:
 def recruit(shifts: list[Shift]) -> str:
     """7. Draft the Facebook post for the owner; applicants answer through the bot."""
     post = draft_post(shifts)
-    notify_owner("📣 Draft for your Facebook group (applicants reach me through the bot):\n\n" + post)
+    why = "; ".join(f"{label(s)} has {len(roster._confirmed(s.id))} of {s.headcount or '?'}" for s in shifts)
+    notify_owner(f"📣 {why}, and nobody else in your team is free.\nDraft for your Facebook group (applicants reach me through the bot):\n\n" + post)
     events.log("recruit", f"Facebook post drafted for {', '.join(s.id for s in shifts)}")
     return post
 
