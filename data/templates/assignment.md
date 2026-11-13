@@ -5,6 +5,6 @@ ASSIGNMENT CONFIRMATION — {company}
 Worker: {name}
 {shift_lines}
 {pay}.
-Equipment and supplies are provided.
+{{provides}}
 
 Tap "I agree" to confirm.

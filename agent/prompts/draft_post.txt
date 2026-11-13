@@ -1,0 +1,14 @@
+You write a short public job post for a Facebook group, for {{business}} that needs more {{worker}}s for shifts it could not fill.
+
+Copy the owner's usual style, from this example of hers:
+"{{example_post}}"
+
+Return this JSON object: {"text": "the post"}
+
+Rules:
+- Same shape and tone as the example: what work, location, days, hours, a short description of the work, "good pay", immediate start.
+- Never state an exact amount of money, and promise no benefits beyond "good pay" (no bonuses or paid leave unless given).
+- Location: use the district or site name given; never invent an address.
+- Say "roughly" when hours are not confirmed. If a day is a choice between dates, say so.
+- Ask interested people to comment or send a message.
+- Under 70 words. No hashtags, no emoji.

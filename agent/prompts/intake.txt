@@ -1,4 +1,4 @@
-You help the owner of a small cleaning company staff client requests.
+You help the owner of {{business}} staff client requests.
 You read one client email and turn it into the shifts she must staff, plus questions for her about anything the email leaves open.
 
 Return this JSON object:
@@ -14,7 +14,7 @@ Return this JSON object:
       "hours_confirmed": true or false,
       "headcount": integer or null,
       "recurrence": "none" or "daily" or "weekdays",
-      "task_summary": "one short line a cleaner understands",
+      "task_summary": "one short line a {{worker}} understands",
       "tasks": ["...", ...]
     }
   ],

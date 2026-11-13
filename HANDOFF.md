@@ -17,6 +17,14 @@ Blocked on: <blocker, or "nothing">
 <!-- entries start below this line -->
 
 ## 13 Nov — Agent A (Max)
+Done (branch max/post-domain):
+- agent/outreach.py: draft_post(open_shifts: list[Shift]) -> str. Facebook post in the owner's style, "good pay", no amounts or invented benefits.
+- Domain config: data/domains/cleaning.json and events.json; DOMAIN in .env picks one (default cleaning). agent/domain.py: settings(), prompt(name), fill(text). All prompts and document templates now use it, so DOMAIN=events staffs event helpers with the same code.
+- .env.example: DOMAIN added; ROLE removed (now in the domain file); PAY_TEXT optional (overrides the domain pay text).
+Needs from B: if your rank() prompt mentions cleaning, you can use agent.domain.settings()["worker"] instead.
+Blocked on: nothing.
+
+## 13 Nov — Agent A (Max)
 Done (branch max/documents, built on max/roster):
 - agent/documents.py: draft_contract(person: Cleaner) -> str (work contract for a new recruit, to send by email), draft_assignment(cleaner: Cleaner, shifts: list[Shift]) -> str (to send on Telegram with an "I agree" button). Both filled from data/templates/, marked SAMPLE, no model involved.
 - agent/client_reply.py: draft_client_reply(request, shifts, questions) -> str ("Subject: ..." + body). Reads the roster module directly, so no roster argument. Never asks the client about headcount; the owner approves before sending.

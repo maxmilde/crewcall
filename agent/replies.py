@@ -1,13 +1,13 @@
 """Understand a cleaner's free-text reply to an offer."""
 import uuid
 from datetime import datetime
-from pathlib import Path
 
 from agent.describe import describe
+from agent.domain import prompt
 from shared.llm import chat_json
 from shared.schemas import Reply, Shift
 
-CLASSIFY_PROMPT = (Path(__file__).parent / "prompts" / "classify.txt").read_text()
+CLASSIFY_PROMPT = prompt("classify")
 LABELS = {"yes", "no", "partial", "question", "unclear"}
 
 

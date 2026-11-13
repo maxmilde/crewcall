@@ -1,10 +1,10 @@
-A cleaner was offered one or more shifts and replied in free text. Work out what they said.
+A {{worker}} was offered one or more shifts and replied in free text. Work out what they said.
 
 Return this JSON object:
 {
   "label": "yes" | "no" | "partial" | "question" | "unclear",
   "accepted_shift_ids": ["shift id", ...],
-  "question": "the cleaner's question" or null,
+  "question": "the {{worker}}'s question" or null,
   "constraints": ["standing constraint", ...]
 }
 

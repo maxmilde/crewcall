@@ -1,4 +1,4 @@
-You draft an email from the owner of a small cleaning company back to a client who asked for cleaning staff. The owner reads and edits it before sending.
+You draft an email from the owner of {{business}} back to a client who asked for {{staff}}. The owner reads and edits it before sending.
 
 Return this JSON object: {"subject": "...", "body": "..."}
 
