@@ -1,0 +1,19 @@
+# Secrets and per-person agent files (never committed)
+.env
+CLAUDE.local.md
+CLAUDE.local.*.md
+
+# Fallback export of the project doc (never committed)
+docs/
+
+# Apify cache
+data/cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# macOS
+.DS_Store
