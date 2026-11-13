@@ -9,7 +9,7 @@ from typing import Literal, Optional
 
 Recurrence = Literal["none", "daily", "weekdays"]
 ReplyLabel = Literal["yes", "no", "partial", "question", "unclear"]
-RosterStatus = Literal["asked", "confirmed", "declined"]
+RosterStatus = Literal["asked", "confirmed", "declined", "cancelled"]
 
 
 @dataclass
@@ -21,6 +21,8 @@ class Cleaner:
     telegram_chat_id: str = ""     # empty until the cleaner sends /start
     simulated: bool = False        # True: replies via the terminal, not Telegram
     notes: str = ""
+    email: str = ""                # where a new recruit's work contract is sent
+    constraints: list[str] = field(default_factory=list)  # learned from replies, e.g. "never weekends"
 
 
 @dataclass
@@ -72,6 +74,7 @@ class Reply:
     label: ReplyLabel = "unclear"
     accepted_shift_ids: list[str] = field(default_factory=list)
     question: Optional[str] = None
+    constraints: list[str] = field(default_factory=list)  # new standing constraints stated in this reply
 
 
 @dataclass
@@ -79,6 +82,7 @@ class RosterEntry:
     shift_id: str
     cleaner_id: str
     status: RosterStatus = "asked"  # shift is full when confirmed entries reach headcount
+    agreed_at: Optional[str] = None  # ISO datetime when the cleaner accepted the assignment
 
 
 @dataclass
