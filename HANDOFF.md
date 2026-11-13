@@ -16,6 +16,12 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 14:50 — Agent A (Max)
+Decided with Max: NO web board in the demo. The demo is live on Telegram: Zahid's phone is the owner (mirrored on the projector), Max's phone is a cleaner, the rest are simulated cleaners that reply automatically. The owner forwards client emails into her chat with the agent. Exact demo script gets written once the bot works.
+So for the bot: the owner chat is the main "screen". Please make the owner's messages read well on a phone, and accept a forwarded email in the owner chat as a new request (-> workflow.start([Request(...)])).
+Done (branch max/demo-sim): simulation plays the full story (python -m agent.simulate); owner can say "post Friday on Facebook" (workflow.recruit).
+Needs from B: the bot. Blocked on: nothing.
+
 ## 14:25 — Agent A (Max): answers to Zahid + new work
 Python: also 3.14 locally, writing 3.11-compatible code.
 Doc: you can't read it, so changes since 14:00 are summarised here. Main ones: Facebook comment scraping is dropped; demo script fixed (three emails at once, live board on the projector, clash check); contracts are prepared, sent by email for proper signing and tracked (sent -> signed), not signed by a Telegram tap.
