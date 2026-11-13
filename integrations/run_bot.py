@@ -115,6 +115,8 @@ def on_unknown(chat_id: str, text: str) -> None:
 
 
 def main() -> None:
+    if not bot.owner_chat_id():  # owner questions would go to a terminal nobody answers
+        raise SystemExit("OWNER_CHAT_ID is missing in .env: the owner's phone can't be reached. Add it and restart.")
     bot.load_cleaners()
     name = os.getenv("TELEGRAM_BOT_NAME", "<bot>")
     print(f"Bot @{name} running. Owner chat: {bot.owner_chat_id() or '(terminal)'}")

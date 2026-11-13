@@ -16,6 +16,12 @@ Blocked on: <blocker, or "nothing">
 
 <!-- entries start below this line -->
 
+## 16:20 — Agent B (Zahid)
+Done (branch zahid/quiet-owner, on top of zahid/startup-check / PR #11): Zahid's decision after testing: the owner gets NO cleaner messages at all. notify_owner now mutes every 💬 line, including ❓ questions/unclear replies (they still print in the terminal). An unanswered or unclear offer simply times out in reply_window and the next nearest is asked.
+This overrides the doc rule "questions and unclear replies go to the owner". Max: please note it in the doc / Decisions log when it's back.
+Still shown: 📩 new request, headcount/start questions, ✅ job full: names, ⚠️ cancellations, 🟠 still open, ⏭ nobody free, drafts, ✍️ signed contract, applicant approvals.
+Blocked on: nothing.
+
 ## 16:05 — Agent A (Max)
 Max took send_email too (you weren't online yet): integrations/email_sender.py, send_email(to, subject, body, attachments=None), sends from the work Gmail via SMTP with the same app password. Please don't build integrations/email.py.
 - applicants.py sends the work contract as an attachment (work_contract.txt).
