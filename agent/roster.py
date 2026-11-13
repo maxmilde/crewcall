@@ -61,7 +61,11 @@ def apply(reply: Reply) -> list[str]:
         if entry.cleaner_id != reply.cleaner_id or entry.status != "asked":
             continue
         if entry.shift_id in reply.accepted_shift_ids:
-            if is_full(entry.shift_id):
+            other = clash(entry.cleaner_id, shifts[entry.shift_id])
+            if other:  # said yes to two shifts at the same time: keep the first booking
+                entry.status = "declined"
+                notes.append(f"{name} can't take {entry.shift_id}: already booked on {other.id} then")
+            elif is_full(entry.shift_id):
                 entry.status = "standby"
                 notes.append(f"{name} is on standby for {entry.shift_id} (already full)")
             else:
@@ -133,9 +137,9 @@ def overlaps(a: Shift, b: Shift) -> bool:
 
 
 def clash(cleaner_id: str, shift: Shift) -> Shift | None:
-    """Another shift this cleaner is confirmed or asked for that overlaps with this one."""
+    """A shift this cleaner is booked on that overlaps with this one."""
     for e in entries:
-        if e.cleaner_id == cleaner_id and e.status in ("asked", "confirmed", "standby") and e.shift_id != shift.id:
+        if e.cleaner_id == cleaner_id and e.status == "confirmed" and e.shift_id != shift.id:
             other = shifts.get(e.shift_id)
             if other and overlaps(shift, other):
                 return other
