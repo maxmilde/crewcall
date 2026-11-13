@@ -39,6 +39,14 @@ def describe(shift: Shift, with_id: bool = False) -> str:
     return f"[{shift.id}] {line}" if with_id else line
 
 
+def job_name(request_id: str) -> str:
+    """Short name for a job: the client's first word ("Gym", "Event") when known, else its id."""
+    from agent.intake import client_names
+    name = client_names.get(request_id, "")
+    first = name.replace("(", " ").split()[0] if name.strip() else ""
+    return first if first and not first.startswith("[") else request_id
+
+
 def label(shift: Shift) -> str:
     """Short name for messages on a phone, e.g. "Thu event 12–17" or "Daily gym 06–09"."""
     if shift.recurrence == "daily":
@@ -50,8 +58,8 @@ def label(shift: Shift) -> str:
     elif shift.date_options:
         day = "/".join(f"{date.fromisoformat(d):%a}" for d in shift.date_options)
     else:
-        return f"{shift.request_id} (date tbc)"
+        return f"{job_name(shift.request_id)} (date tbc)"
     hours = f"{shift.start[:2]}–{shift.end[:2]}" if shift.start and shift.end else ""
     if hours and not shift.hours_confirmed:
         hours = "~" + hours
-    return f"{day} {shift.request_id} {hours}".strip()
+    return f"{day} {job_name(shift.request_id)} {hours}".strip()

@@ -45,8 +45,12 @@ def _post(request_id: str, text: str) -> None:
         bot._print("OWNER (card)", text)
         return
     if request_id in _messages:
-        bot._api("editMessageText", chat_id=owner, message_id=_messages[request_id], text=text)
-    else:
+        try:
+            bot._api("editMessageText", chat_id=owner, message_id=_messages[request_id], text=text)
+            return
+        except Exception:  # message too old or deleted: post a fresh card
+            pass
+    if True:
         _messages[request_id] = bot._api("sendMessage", chat_id=owner, text=text)["message_id"]
 
 
